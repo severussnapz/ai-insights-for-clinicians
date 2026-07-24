@@ -3,15 +3,16 @@ import logging
 import os
 import time
 import uuid
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import requests
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 
 load_dotenv()
 
-app = Flask(__name__)
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+app = Flask(__name__, static_folder=BASE_DIR, static_url_path="")
 
 DEFAULT_AZURE_API_VERSION = "2024-02-15-preview"
 SUPPORTED_PROVIDERS = {"openai", "azure", "openrouter"}
@@ -90,7 +91,7 @@ def _error_response(
     status: int,
     message: str,
     error_code: str,
-    details: Dict[str, Any] | None = None,
+    details: Optional[Dict[str, Any]] = None,
 ):
     payload: Dict[str, Any] = {
         "ok": False,
@@ -423,6 +424,19 @@ def generate():
         },
         request_id=request_id,
     )
+
+
+@app.route("/", methods=["GET"])
+def root():
+    return send_from_directory(BASE_DIR, "index.html")
+
+
+@app.route("/<path:path>", methods=["GET"])
+def static_files(path: str):
+    file_path = os.path.join(BASE_DIR, path)
+    if os.path.isfile(file_path):
+        return send_from_directory(BASE_DIR, path)
+    return send_from_directory(BASE_DIR, "index.html")
 
 
 if __name__ == "__main__":

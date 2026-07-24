@@ -29,11 +29,19 @@ AI Insights for Clinicians is a static single-page website that helps clinicians
 
 No build tooling is required.
 
-1. Open index.html in your browser.
-2. Enter your reflection context.
-3. Configure AI settings (proxy mode is enabled by default).
-4. Choose either Generate With AI or Generate Draft Only.
-5. Copy and paste any section into your appraisal workflow.
+1. Open a terminal in `backend`.
+2. Create and activate a virtual environment:
+	- `python3 -m venv .venv`
+	- `source .venv/bin/activate`
+3. Install dependencies:
+	- `pip install -r requirements.txt`
+4. Create env file from template:
+	- `cp .env.example .env`
+5. Add at least one provider key in `.env`:
+	- `OPENAI_API_KEY=...` or `AZURE_OPENAI_API_KEY=...` or `OPENROUTER_API_KEY=...`
+6. Start the backend (which now also serves the frontend):
+	- `python app.py`
+7. Open `http://localhost:8000` in your browser.
 
 ## Secure Backend Proxy (Recommended)
 
@@ -74,6 +82,26 @@ Error contract:
 	- `ORIGIN_NOT_ALLOWED`
 
 ## Deployment And Hardening
+
+### Stable hosted deployment (single service)
+
+Deploy only the `backend` service. It now serves:
+
+- Frontend UI at `/`
+- API endpoints at `/health`, `/api/test-connection`, `/api/generate`
+
+This gives one stable URL for you and colleagues, and avoids temporary tunnel expiry.
+
+Recommended flow on Render:
+
+1. Create a new Web Service from this repo.
+2. Set Root Directory to `backend`.
+3. Build command: `pip install -r requirements.txt`
+4. Start command: `gunicorn -w 2 -b 0.0.0.0:$PORT app:app`
+5. Add environment variable(s):
+	- `OPENAI_API_KEY` (or Azure/OpenRouter equivalent)
+	- `ALLOWED_ORIGINS` set to your Render domain (for example `https://your-app.onrender.com`)
+6. Deploy and share the single Render URL.
 
 ### Backend security defaults
 
