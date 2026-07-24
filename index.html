@@ -42,6 +42,21 @@
         <details class="ai-settings">
           <summary>AI Connection Settings</summary>
           <div class="settings-grid">
+            <label class="checkbox-row" for="useProxy">
+              <input id="useProxy" name="useProxy" type="checkbox" checked />
+              Use secure backend proxy (recommended)
+            </label>
+
+            <label for="proxyBaseUrl" class="proxy-row">Proxy Base URL</label>
+            <input
+              id="proxyBaseUrl"
+              name="proxyBaseUrl"
+              class="proxy-row"
+              type="url"
+              value="http://localhost:8000"
+              placeholder="http://localhost:8000"
+            />
+
             <label for="provider">Provider</label>
             <select id="provider" name="provider">
               <option value="openai">OpenAI</option>
@@ -68,10 +83,11 @@
             />
             <div id="modelTemplates" class="model-templates" aria-live="polite"></div>
 
-            <label for="apiKey">API Key</label>
+            <label for="apiKey" id="apiKeyLabel" class="direct-row">API Key</label>
             <input
               id="apiKey"
               name="apiKey"
+              class="direct-row"
               type="password"
               placeholder="Paste API key"
               autocomplete="off"
@@ -118,6 +134,10 @@
               OpenAI selected: uses Bearer token + chat completions format.
             </p>
 
+            <p id="proxyHint" class="proxy-hint">
+              Proxy mode: API keys are stored on your backend server, not in this browser.
+            </p>
+
             <label class="checkbox-row" for="rememberSettings">
               <input id="rememberSettings" name="rememberSettings" type="checkbox" />
               Remember endpoint and model on this browser
@@ -144,6 +164,25 @@
             <option value="PDP Plan">PDP Plan</option>
           </select>
 
+          <div class="writing-controls">
+            <div>
+              <label for="toneStyle">Writing Tone</label>
+              <select id="toneStyle" name="toneStyle">
+                <option value="brief">Brief</option>
+                <option value="standard" selected>Standard</option>
+                <option value="detailed">Detailed</option>
+              </select>
+            </div>
+            <div>
+              <label for="lengthStyle">Output Length</label>
+              <select id="lengthStyle" name="lengthStyle">
+                <option value="short">Short</option>
+                <option value="medium" selected>Medium</option>
+                <option value="long">Long</option>
+              </select>
+            </div>
+          </div>
+
           <label for="reflectionInput">Your Reflection Prompt</label>
           <textarea
             id="reflectionInput"
@@ -151,6 +190,22 @@
             rows="8"
             placeholder="Example: I reviewed a patient with recurrent abdominal pain and initially focused on IBS, but later identified red flags after re-taking the history..."
           ></textarea>
+
+          <div class="safeguard-box">
+            <p class="safeguard-title">Clinical Safety And De-Identification</p>
+            <label class="checkbox-row" for="clinicianReviewConfirm">
+              <input id="clinicianReviewConfirm" name="clinicianReviewConfirm" type="checkbox" />
+              I confirm this text is de-identified and I will clinically review all generated content before use.
+            </label>
+            <div id="phiWarning" class="phi-warning hidden" aria-live="polite">
+              <p class="phi-warning-title">Potential identifying details detected</p>
+              <ul id="phiFindings"></ul>
+              <label class="checkbox-row" for="phiAcknowledge">
+                <input id="phiAcknowledge" name="phiAcknowledge" type="checkbox" />
+                I have reviewed this risk and removed or generalized identifiable details where needed.
+              </label>
+            </div>
+          </div>
 
           <div class="button-row">
             <button type="submit" id="generateBtn" class="primary-btn">Generate With AI</button>
@@ -187,7 +242,10 @@
           <article class="output-card">
             <div class="card-top">
               <h3>Suggested Entry Summary</h3>
-              <button type="button" class="copy-btn" data-copy-target="summaryOutput">Copy</button>
+              <div class="card-actions">
+                <button type="button" class="ghost-btn regenerate-btn" data-section="summary">Regenerate</button>
+                <button type="button" class="copy-btn" data-copy-target="summaryOutput">Copy</button>
+              </div>
             </div>
             <textarea id="summaryOutput" readonly rows="6"></textarea>
           </article>
@@ -195,7 +253,10 @@
           <article class="output-card">
             <div class="card-top">
               <h3>Learning Points</h3>
-              <button type="button" class="copy-btn" data-copy-target="learningOutput">Copy</button>
+              <div class="card-actions">
+                <button type="button" class="ghost-btn regenerate-btn" data-section="learning">Regenerate</button>
+                <button type="button" class="copy-btn" data-copy-target="learningOutput">Copy</button>
+              </div>
             </div>
             <textarea id="learningOutput" readonly rows="7"></textarea>
           </article>
@@ -203,7 +264,10 @@
           <article class="output-card">
             <div class="card-top">
               <h3>Action Plan</h3>
-              <button type="button" class="copy-btn" data-copy-target="actionOutput">Copy</button>
+              <div class="card-actions">
+                <button type="button" class="ghost-btn regenerate-btn" data-section="action">Regenerate</button>
+                <button type="button" class="copy-btn" data-copy-target="actionOutput">Copy</button>
+              </div>
             </div>
             <textarea id="actionOutput" readonly rows="7"></textarea>
           </article>

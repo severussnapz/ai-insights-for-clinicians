@@ -136,6 +136,12 @@ form {
   gap: 11px;
 }
 
+.writing-controls {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 label {
   font-size: 0.93rem;
   font-weight: 700;
@@ -186,10 +192,21 @@ input:focus {
   display: none;
 }
 
+.proxy-row.hidden-row,
+.direct-row.hidden-row {
+  display: none;
+}
+
 .provider-hint {
   font-size: 0.86rem;
   color: #4e6154;
   margin-top: 2px;
+}
+
+.proxy-hint {
+  font-size: 0.84rem;
+  color: #3f5e4c;
+  margin-top: -2px;
 }
 
 .model-templates {
@@ -273,6 +290,42 @@ input:focus {
   gap: 10px;
   flex-wrap: wrap;
   margin-top: 4px;
+}
+
+.safeguard-box {
+  border: 1px solid #d7dec9;
+  background: #f7faef;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.safeguard-title {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #334437;
+  margin-bottom: 6px;
+}
+
+.phi-warning {
+  margin-top: 8px;
+  border: 1px solid #e5cab7;
+  background: #fff6f0;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.phi-warning-title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #7e3f1d;
+  margin-bottom: 4px;
+}
+
+.phi-warning ul {
+  margin: 0 0 8px;
+  padding-left: 18px;
+  color: #6b3b23;
+  font-size: 0.84rem;
 }
 
 button {
@@ -392,6 +445,22 @@ button {
   margin-bottom: 8px;
 }
 
+.card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.regenerate-btn {
+  background: #eaf2dd;
+  color: #2d3d2f;
+  border: 1px solid #cfdbc0;
+}
+
+.regenerate-btn:hover {
+  background: #e0ebcf;
+}
+
 .output-card textarea {
   background: #fff;
 }
@@ -490,6 +559,10 @@ button {
   }
 
   .output-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .writing-controls {
     grid-template-columns: 1fr;
   }
 

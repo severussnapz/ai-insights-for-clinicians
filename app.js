@@ -9,19 +9,29 @@ const troubleshootBox = document.getElementById("troubleshootBox");
 const troubleshootList = document.getElementById("troubleshootList");
 
 const entryTypeInput = document.getElementById("entryType");
+const toneStyleInput = document.getElementById("toneStyle");
+const lengthStyleInput = document.getElementById("lengthStyle");
 const reflectionInput = document.getElementById("reflectionInput");
 const draftTitleInput = document.getElementById("draftTitle");
+const clinicianReviewConfirmInput = document.getElementById("clinicianReviewConfirm");
+const phiWarning = document.getElementById("phiWarning");
+const phiFindings = document.getElementById("phiFindings");
+const phiAcknowledgeInput = document.getElementById("phiAcknowledge");
 
 const providerInput = document.getElementById("provider");
+const useProxyInput = document.getElementById("useProxy");
+const proxyBaseUrlInput = document.getElementById("proxyBaseUrl");
 const apiEndpointInput = document.getElementById("apiEndpoint");
 const modelNameInput = document.getElementById("modelName");
 const modelTemplatesEl = document.getElementById("modelTemplates");
+const apiKeyLabel = document.getElementById("apiKeyLabel");
 const apiKeyInput = document.getElementById("apiKey");
 const apiVersionInput = document.getElementById("apiVersion");
 const deploymentNameInput = document.getElementById("deploymentName");
 const siteUrlInput = document.getElementById("siteUrl");
 const appNameInput = document.getElementById("appName");
 const providerHint = document.getElementById("providerHint");
+const proxyHint = document.getElementById("proxyHint");
 const rememberSettingsInput = document.getElementById("rememberSettings");
 const testConnectionBtn = document.getElementById("testConnectionBtn");
 const connectionBadge = document.getElementById("connectionBadge");
@@ -41,6 +51,7 @@ const actionOutput = document.getElementById("actionOutput");
 const capabilityOutput = document.getElementById("capabilityOutput");
 
 const copyButtons = Array.from(document.querySelectorAll(".copy-btn"));
+const regenerateButtons = Array.from(document.querySelectorAll(".regenerate-btn"));
 
 const SETTINGS_KEY = "aiInsightsSettingsV1";
 const DRAFTS_KEY = "aiInsightsDraftsV1";
@@ -73,7 +84,32 @@ const PROVIDER_PRESETS = {
   },
 };
 
+const LENGTH_PROFILES = {
+  short: {
+    summaryPrimary: 22,
+    summarySecondary: 18,
+    learningCount: 3,
+    actionCount: 3,
+  },
+  medium: {
+    summaryPrimary: 38,
+    summarySecondary: 34,
+    learningCount: 4,
+    actionCount: 3,
+  },
+  long: {
+    summaryPrimary: 55,
+    summarySecondary: 48,
+    learningCount: 5,
+    actionCount: 4,
+  },
+};
+
 let activeMode = "ai";
+
+function isProxyMode() {
+  return Boolean(useProxyInput.checked);
+}
 
 function normalizeWhitespace(value) {
   return value.replace(/\s+/g, " ").trim();
@@ -155,6 +191,13 @@ function toWordLimitedText(value, limit) {
   return `${words.slice(0, limit).join(" ")}...`;
 }
 
+function writingControls() {
+  const tone = toneStyleInput.value || "standard";
+  const length = lengthStyleInput.value || "medium";
+  const profile = LENGTH_PROFILES[length] || LENGTH_PROFILES.medium;
+  return { tone, length, profile };
+}
+
 function detectFocusAreas(text) {
   const lowered = text.toLowerCase();
   const focus = [];
@@ -182,46 +225,55 @@ function detectFocusAreas(text) {
   return focus;
 }
 
-function buildSummary(entryType, reflectionText) {
+function buildSummary(entryType, reflectionText, controls = writingControls()) {
   const sentences = splitSentences(reflectionText);
   const primary = sentences[0] || toWordLimitedText(reflectionText, 40);
   const secondary =
     sentences[1] || "I reviewed my approach and identified practical areas to improve future care.";
+  const toneLabel = controls.tone.charAt(0).toUpperCase() + controls.tone.slice(1);
 
   return [
     `Entry type: ${entryType}`,
+    `Tone and length: ${toneLabel}, ${controls.length}`,
     "",
-    `What happened: ${toWordLimitedText(primary, 38)}`,
-    `Why it mattered: ${toWordLimitedText(secondary, 34)}`,
+    `What happened: ${toWordLimitedText(primary, controls.profile.summaryPrimary)}`,
+    `Why it mattered: ${toWordLimitedText(secondary, controls.profile.summarySecondary)}`,
     "",
     "Reflective lens: What? So what? Now what?",
   ].join("\n");
 }
 
-function buildLearningPoints(reflectionText, focusAreas) {
+function buildLearningPoints(reflectionText, focusAreas, controls = writingControls()) {
   const starter = toWordLimitedText(reflectionText, 48);
-
-  return [
+  const base = [
     `- Key insight: ${starter}`,
     "- I noticed how my assumptions influenced the first stage of assessment.",
     "- I will strengthen documentation of uncertainty and explicit safety-netting.",
     `- Capability emphasis: ${focusAreas.join("; ")}.`,
     "- CPD need: targeted update and peer discussion on a similar case theme.",
-  ].join("\n");
+  ];
+
+  return base.slice(0, controls.profile.learningCount).join("\n");
 }
 
-function buildActionPlan(focusAreas) {
+function buildActionPlan(focusAreas, controls = writingControls()) {
   const plan = [
     "1. Complete a short focused CPD activity and log one practical change to consultations.",
     "2. Use a structured reflection template in the next relevant case within 2 weeks.",
     "3. Discuss this case theme in supervision or a practice meeting and document feedback.",
+    "4. Document whether the change improved confidence, safety-netting, or decision quality.",
   ];
 
-  if (focusAreas.includes("Patient safety and risk management")) {
-    plan.push("4. Add a personal checklist for red flags and explicit follow-up advice.");
+  const selected = plan.slice(0, controls.profile.actionCount);
+  if (
+    controls.profile.actionCount >= 4 &&
+    focusAreas.includes("Patient safety and risk management") &&
+    !selected.some((line) => line.includes("red flags"))
+  ) {
+    selected[3] = "4. Add a personal checklist for red flags and explicit follow-up advice.";
   }
 
-  return plan.join("\n");
+  return selected.join("\n");
 }
 
 function buildCapabilityMapping(focusAreas) {
@@ -239,7 +291,21 @@ function buildCapabilityMapping(focusAreas) {
   return lines.join("\n");
 }
 
-function buildAiPrompt(entryType, reflectionText, focusAreas) {
+function buildAiPrompt(entryType, reflectionText, focusAreas, controls = writingControls()) {
+  const toneGuide =
+    controls.tone === "brief"
+      ? "Use concise and direct wording with minimal expansion."
+      : controls.tone === "detailed"
+        ? "Use reflective detail and nuanced reasoning while staying clear."
+        : "Use balanced, professional reflective wording.";
+
+  const lengthGuide =
+    controls.length === "short"
+      ? "Prefer shorter outputs and tighter phrasing."
+      : controls.length === "long"
+        ? "Use fuller explanations while staying concise and relevant."
+        : "Use moderate length suitable for common appraisal fields.";
+
   return [
     "You are a writing assistant for UK GP appraisal entries.",
     "Use a concise, professional tone aligned with common FourteenFish portfolio expectations and RCGP reflective practice themes.",
@@ -249,6 +315,8 @@ function buildAiPrompt(entryType, reflectionText, focusAreas) {
     `ENTRY TYPE: ${entryType}`,
     `CLINICIAN INPUT: ${normalizeWhitespace(reflectionText)}`,
     `FOCUS AREAS: ${focusAreas.join("; ")}`,
+    `TONE STYLE: ${controls.tone}`,
+    `OUTPUT LENGTH: ${controls.length}`,
     "",
     "Return JSON only with exactly these keys:",
     "suggestedTitle (string)",
@@ -261,6 +329,8 @@ function buildAiPrompt(entryType, reflectionText, focusAreas) {
     "- Use plain English and short sentences.",
     "- Keep wording ready to paste into appraisal forms.",
     "- Avoid repetition and generic filler.",
+    `- ${toneGuide}`,
+    `- ${lengthGuide}`,
   ].join("\n");
 }
 
@@ -272,9 +342,101 @@ function setStatus(message, tone = "") {
   }
 }
 
+function setAuthModeVisibility() {
+  const proxyMode = isProxyMode();
+  const proxyRows = Array.from(document.querySelectorAll(".proxy-row"));
+  const directRows = [apiKeyLabel, apiKeyInput];
+
+  proxyRows.forEach((element) => {
+    element.classList.toggle("hidden-row", !proxyMode);
+  });
+  directRows.forEach((element) => {
+    element.classList.toggle("hidden-row", proxyMode);
+  });
+  proxyHint.textContent = proxyMode
+    ? "Proxy mode: API keys are stored on your backend server, not in this browser."
+    : "Direct mode: API key is used in-browser for local testing only.";
+}
+
+function updateProviderHint(provider) {
+  const preset = PROVIDER_PRESETS[provider] || PROVIDER_PRESETS.openai;
+  const modeLine = isProxyMode()
+    ? "Secure proxy mode is active."
+    : "Direct browser mode is active.";
+  providerHint.textContent = `${preset.hint} ${modeLine}`;
+}
+
 function clearTroubleshooting() {
   troubleshootList.innerHTML = "";
   troubleshootBox.classList.add("hidden");
+}
+
+function detectPhiRiskItems(text) {
+  const findings = [];
+  const checks = [
+    {
+      label: "Possible email address",
+      regex: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i,
+    },
+    {
+      label: "Possible phone number",
+      regex: /\b(?:\+44\s?7\d{3}|07\d{3})\s?\d{3}\s?\d{3}\b/,
+    },
+    {
+      label: "Possible date of birth or exact date",
+      regex: /\b(?:\d{1,2}[\/.-]\d{1,2}[\/.-](?:\d{2}|\d{4})|\d{4}[\/.-]\d{1,2}[\/.-]\d{1,2})\b/,
+    },
+    {
+      label: "Possible UK postcode",
+      regex: /\b[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}\b/i,
+    },
+    {
+      label: "Possible NHS number-like sequence",
+      regex: /\b\d{3}\s?\d{3}\s?\d{4}\b/,
+    },
+  ];
+
+  checks.forEach((check) => {
+    if (check.regex.test(text)) {
+      findings.push(check.label);
+    }
+  });
+
+  return findings;
+}
+
+function renderPhiWarnings(findings) {
+  phiFindings.innerHTML = "";
+  if (!findings.length) {
+    phiWarning.classList.add("hidden");
+    phiAcknowledgeInput.checked = false;
+    return;
+  }
+
+  findings.forEach((item) => {
+    const li = document.createElement("li");
+    li.textContent = item;
+    phiFindings.appendChild(li);
+  });
+  phiWarning.classList.remove("hidden");
+}
+
+function validateSafeguards() {
+  const reflectionText = normalizeWhitespace(reflectionInput.value);
+  const findings = detectPhiRiskItems(reflectionText);
+  renderPhiWarnings(findings);
+
+  if (!clinicianReviewConfirmInput.checked) {
+    setStatus("Confirm the clinical safety/de-identification declaration before generating output.", "error");
+    return false;
+  }
+
+  if (findings.length && !phiAcknowledgeInput.checked) {
+    setStatus("Potential identifying details were detected. Please review and acknowledge the PHI warning.", "error");
+    return false;
+  }
+
+  return true;
 }
 
 function renderTroubleshooting(items) {
@@ -296,6 +458,8 @@ function buildTroubleshootingHints(error, provider) {
   const hints = [];
   const status = Number(error?.httpStatus || 0);
   const message = String(error?.message || "").toLowerCase();
+  const responseText = String(error?.responseText || "").toLowerCase();
+  const proxyMode = isProxyMode();
   const providerLabel = provider === "azure" ? "Azure OpenAI" : provider === "openrouter" ? "OpenRouter" : "OpenAI";
 
   if (status === 400) {
@@ -312,7 +476,11 @@ function buildTroubleshootingHints(error, provider) {
     hints.push("Access was denied. Check project permissions, subscription status, or provider policy settings.");
   }
   if (status === 404) {
-    hints.push("Endpoint not found. Verify the URL path and region/resource hostname.");
+    hints.push(
+      proxyMode
+        ? "Proxy route not found. Confirm the backend is running and Proxy Base URL is correct."
+        : "Endpoint not found. Verify the URL path and region/resource hostname.",
+    );
     if (provider === "azure") {
       hints.push("Azure often returns 404 for incorrect deployment names or wrong regional resource endpoints.");
     }
@@ -333,9 +501,18 @@ function buildTroubleshootingHints(error, provider) {
     hints.push("Provider service is temporarily unavailable. Retry in a minute.");
   }
 
+  if (responseText.includes("server missing") || responseText.includes("api key")) {
+    hints.push("Proxy server key not configured. Add provider keys in backend environment variables.");
+  }
+
   if (message.includes("failed to fetch") || message.includes("networkerror")) {
-    hints.push("Network/CORS issue detected. If running from local file, provider may block browser-side cross-origin calls.");
-    hints.push("If CORS blocks requests, use a small backend proxy to call the provider securely.");
+    if (proxyMode) {
+      hints.push("Proxy connection failed. Start backend server and verify Proxy Base URL and port.");
+      hints.push("If the frontend runs on a different origin, check ALLOWED_ORIGIN in backend .env.");
+    } else {
+      hints.push("Network/CORS issue detected. If running from local file, provider may block browser-side cross-origin calls.");
+      hints.push("If CORS blocks requests, use a small backend proxy to call the provider securely.");
+    }
   }
 
   if (message.includes("valid json") || message.includes("missing required fields")) {
@@ -448,14 +625,130 @@ function currentTitle() {
   return title || `reflection-${new Date().toISOString().slice(0, 10)}`;
 }
 
-function buildLocalDraftPayload(entryType, reflectionText, focusAreas) {
+function buildLocalDraftPayload(entryType, reflectionText, focusAreas, controls = writingControls()) {
   return {
     suggestedTitle: currentTitle(),
-    summary: buildSummary(entryType, reflectionText),
-    learningPoints: buildLearningPoints(reflectionText, focusAreas).split("\n"),
-    actionPlan: buildActionPlan(focusAreas).split("\n"),
+    summary: buildSummary(entryType, reflectionText, controls),
+    learningPoints: buildLearningPoints(reflectionText, focusAreas, controls).split("\n"),
+    actionPlan: buildActionPlan(focusAreas, controls).split("\n"),
     capabilityLinks: buildCapabilityMapping(focusAreas).split("\n"),
   };
+}
+
+function buildSectionPrompt(section, context) {
+  const sectionMap = {
+    summary: "summary",
+    learning: "learningPoints",
+    action: "actionPlan",
+  };
+  const key = sectionMap[section];
+  if (!key) {
+    throw new Error("Unsupported section for regeneration.");
+  }
+
+  return [
+    "You are refining one section of a UK GP appraisal draft.",
+    "Use concise professional language aligned with FourteenFish-style entries and RCGP reflective themes.",
+    "Do not include patient-identifying details.",
+    "",
+    `SECTION TO REGENERATE: ${key}`,
+    `ENTRY TYPE: ${context.entryType}`,
+    `REFLECTION INPUT: ${context.reflectionText}`,
+    `FOCUS AREAS: ${context.focusAreas.join("; ")}`,
+    `TONE STYLE: ${context.controls.tone}`,
+    `OUTPUT LENGTH: ${context.controls.length}`,
+    "",
+    "Return JSON only:",
+    "- for summary: {\"summary\": \"...\"}",
+    "- for learningPoints: {\"learningPoints\": [\"...\", \"...\"]}",
+    "- for actionPlan: {\"actionPlan\": [\"...\", \"...\"]}",
+  ].join("\n");
+}
+
+function applyRegeneratedSection(section, parsed) {
+  if (section === "summary") {
+    if (typeof parsed.summary !== "string" || !parsed.summary.trim()) {
+      throw new Error("Regenerated summary was empty.");
+    }
+    summaryOutput.value = parsed.summary.trim();
+    return;
+  }
+
+  if (section === "learning") {
+    const points = Array.isArray(parsed.learningPoints) ? parsed.learningPoints : [];
+    if (!points.length) {
+      throw new Error("Regenerated learning points were empty.");
+    }
+    learningOutput.value = points
+      .map((item) => `- ${String(item).replace(/^[-\s]+/, "").trim()}`)
+      .join("\n");
+    return;
+  }
+
+  if (section === "action") {
+    const steps = Array.isArray(parsed.actionPlan) ? parsed.actionPlan : [];
+    if (!steps.length) {
+      throw new Error("Regenerated action plan was empty.");
+    }
+    actionOutput.value = steps
+      .map((item, index) => `${index + 1}. ${String(item).replace(/^\d+\.\s*/, "").trim()}`)
+      .join("\n");
+  }
+}
+
+async function regenerateSection(section, button) {
+  const reflectionText = normalizeWhitespace(reflectionInput.value);
+  const entryType = entryTypeInput.value;
+
+  if (!reflectionText) {
+    setStatus("Enter a reflection prompt before regenerating a section.", "error");
+    reflectionInput.focus();
+    return;
+  }
+
+  if (!validateSafeguards()) {
+    return;
+  }
+
+  const focusAreas = detectFocusAreas(reflectionText);
+  const controls = writingControls();
+  const context = {
+    reflectionText,
+    entryType,
+    focusAreas,
+    controls,
+  };
+
+  if (button) {
+    button.disabled = true;
+  }
+  clearTroubleshooting();
+  setStatus("Regenerating selected section with AI...");
+
+  try {
+    const prompt = buildSectionPrompt(section, context);
+    const { message } = await sendAiRequest(prompt, "generate");
+    const parsed = parseSectionResponse(message);
+    applyRegeneratedSection(section, parsed);
+    setStatus("Section regenerated successfully.", "success");
+  } catch (error) {
+    const fallback = buildLocalDraftPayload(entryType, reflectionText, focusAreas, controls);
+    if (section === "summary") {
+      summaryOutput.value = fallback.summary;
+    } else if (section === "learning") {
+      learningOutput.value = fallback.learningPoints.join("\n");
+    } else if (section === "action") {
+      actionOutput.value = fallback.actionPlan.join("\n");
+    }
+    renderTroubleshooting(buildTroubleshootingHints(error, providerInput.value));
+    setStatus(`Section regenerate fallback applied. ${error.message}`, "error");
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+    outputSection.classList.remove("hidden");
+    saveSettingsIfNeeded();
+  }
 }
 
 function assignOutputs(payload) {
@@ -501,7 +794,24 @@ function parseAiResponse(text) {
   return parsed;
 }
 
-async function sendAiRequest(prompt) {
+function parseSectionResponse(text) {
+  const direct = text.trim();
+  const jsonCandidate = direct.startsWith("{") ? direct : extractJsonBlock(direct);
+  if (!jsonCandidate) {
+    throw new Error("Section response did not include valid JSON.");
+  }
+  return JSON.parse(jsonCandidate);
+}
+
+function parseProxyBaseUrl() {
+  const base = normalizeWhitespace(proxyBaseUrlInput.value);
+  if (!base) {
+    throw new Error("Proxy base URL is required when proxy mode is enabled.");
+  }
+  return base.replace(/\/+$/, "");
+}
+
+async function sendAiRequest(prompt, requestType = "generate") {
   const provider = providerInput.value;
   const endpoint = normalizeWhitespace(apiEndpointInput.value);
   const model = normalizeWhitespace(modelNameInput.value);
@@ -510,13 +820,18 @@ async function sendAiRequest(prompt) {
   const deploymentName = normalizeWhitespace(deploymentNameInput.value);
   const siteUrl = normalizeWhitespace(siteUrlInput.value);
   const appName = normalizeWhitespace(appNameInput.value);
+  const proxyMode = isProxyMode();
 
-  if (!endpoint || !apiKey) {
-    throw new Error("API endpoint and API key are required for AI generation.");
+  if (!endpoint) {
+    throw new Error("API endpoint is required.");
   }
 
   if ((provider === "openai" || provider === "openrouter") && !model) {
     throw new Error("Model name is required for the selected provider.");
+  }
+
+  if (!proxyMode && !apiKey) {
+    throw new Error("API key is required in direct browser mode.");
   }
 
   const messages = [
@@ -532,12 +847,28 @@ async function sendAiRequest(prompt) {
   ];
 
   let requestUrl = endpoint;
-  const headers = {
+  let headers = {
     "Content-Type": "application/json",
   };
   let body = {};
 
-  if (provider === "azure") {
+  if (proxyMode) {
+    const proxyBase = parseProxyBaseUrl();
+    requestUrl = requestType === "test" ? `${proxyBase}/api/test-connection` : `${proxyBase}/api/generate`;
+    headers = {
+      "Content-Type": "application/json",
+    };
+    body = {
+      provider,
+      endpoint,
+      model,
+      apiVersion,
+      deploymentName,
+      siteUrl,
+      appName,
+      prompt,
+    };
+  } else if (provider === "azure") {
     const version = apiVersion || "2024-02-15-preview";
     const cleanEndpoint = endpoint.replace(/\/+$/, "");
     if (deploymentName && !cleanEndpoint.includes("/deployments/")) {
@@ -602,6 +933,27 @@ async function sendAiRequest(prompt) {
   }
 
   const data = await response.json();
+
+  if (proxyMode && requestType === "test") {
+    return {
+      provider: data.provider || provider,
+      model: data.model || model,
+      message: "CONNECTION_OK",
+    };
+  }
+
+  if (proxyMode) {
+    const message = data?.message;
+    if (!message) {
+      throw new Error("Proxy response did not include model output.");
+    }
+    return {
+      message,
+      provider: data.provider || provider,
+      model: data.model || model,
+    };
+  }
+
   const message = data?.choices?.[0]?.message?.content;
   if (!message) {
     throw new Error("AI response was empty.");
@@ -628,6 +980,7 @@ async function testConnection() {
   try {
     const { provider, model } = await sendAiRequest(
       "Reply with exactly CONNECTION_OK and no other text.",
+      "test",
     );
     const modelLabel = model ? ` (${model})` : "";
     setStatus(`Connection successful for ${provider}${modelLabel}.`, "success");
@@ -775,6 +1128,8 @@ function saveSettingsIfNeeded() {
   }
 
   const data = {
+    useProxy: useProxyInput.checked,
+    proxyBaseUrl: normalizeWhitespace(proxyBaseUrlInput.value),
     provider: providerInput.value,
     endpoint: normalizeWhitespace(apiEndpointInput.value),
     model: normalizeWhitespace(modelNameInput.value),
@@ -825,8 +1180,7 @@ function setProviderVisibility(provider) {
     element.classList.remove("hidden-row");
   });
 
-  const preset = PROVIDER_PRESETS[provider] || PROVIDER_PRESETS.openai;
-  providerHint.textContent = preset.hint;
+  updateProviderHint(provider);
   renderModelTemplates(provider);
 }
 
@@ -845,11 +1199,19 @@ function loadSavedSettings() {
   const raw = localStorage.getItem(SETTINGS_KEY);
   if (!raw) {
     applyProviderPreset(providerInput.value, false);
+    setAuthModeVisibility();
+    updateProviderHint(providerInput.value);
     return;
   }
 
   try {
     const parsed = JSON.parse(raw);
+    if (typeof parsed.useProxy === "boolean") {
+      useProxyInput.checked = parsed.useProxy;
+    }
+    if (parsed.proxyBaseUrl) {
+      proxyBaseUrlInput.value = parsed.proxyBaseUrl;
+    }
     if (parsed.provider) {
       providerInput.value = parsed.provider;
     }
@@ -872,10 +1234,13 @@ function loadSavedSettings() {
       appNameInput.value = parsed.appName;
     }
     rememberSettingsInput.checked = true;
+    setAuthModeVisibility();
     setProviderVisibility(providerInput.value);
   } catch {
     localStorage.removeItem(SETTINGS_KEY);
     applyProviderPreset(providerInput.value, false);
+    setAuthModeVisibility();
+    updateProviderHint(providerInput.value);
   }
 }
 
@@ -898,6 +1263,10 @@ async function generate(mode) {
     return;
   }
 
+  if (!validateSafeguards()) {
+    return;
+  }
+
   activeMode = mode;
   generateBtn.disabled = true;
   generateDraftBtn.disabled = true;
@@ -905,7 +1274,8 @@ async function generate(mode) {
   setStatus(mode === "ai" ? "Generating with AI..." : "Generating draft template...");
 
   const focusAreas = detectFocusAreas(reflectionText);
-  const prompt = buildAiPrompt(entryType, reflectionText, focusAreas);
+  const controls = writingControls();
+  const prompt = buildAiPrompt(entryType, reflectionText, focusAreas, controls);
   aiPromptOutput.value = prompt;
 
   try {
@@ -915,12 +1285,12 @@ async function generate(mode) {
       setStatus("AI output generated successfully.", "success");
       clearTroubleshooting();
     } else {
-      assignOutputs(buildLocalDraftPayload(entryType, reflectionText, focusAreas));
+      assignOutputs(buildLocalDraftPayload(entryType, reflectionText, focusAreas, controls));
       setStatus("Draft template generated.", "success");
       clearTroubleshooting();
     }
   } catch (error) {
-    assignOutputs(buildLocalDraftPayload(entryType, reflectionText, focusAreas));
+    assignOutputs(buildLocalDraftPayload(entryType, reflectionText, focusAreas, controls));
     renderTroubleshooting(buildTroubleshootingHints(error, providerInput.value));
     setStatus(`AI unavailable. Draft template generated instead. ${error.message}`, "error");
   } finally {
@@ -995,10 +1365,16 @@ clearBtn.addEventListener("click", () => {
   form.reset();
   draftTitleInput.value = "";
   apiKeyInput.value = "";
+  renderPhiWarnings([]);
   clearOutputs();
   clearTroubleshooting();
   setStatus("Form cleared.");
   reflectionInput.focus();
+});
+
+reflectionInput.addEventListener("input", () => {
+  const findings = detectPhiRiskItems(reflectionInput.value);
+  renderPhiWarnings(findings);
 });
 
 copyButtons.forEach((button) => {
@@ -1009,6 +1385,16 @@ copyButtons.forEach((button) => {
       return;
     }
     copyText(target.value, button);
+  });
+});
+
+regenerateButtons.forEach((button) => {
+  button.addEventListener("click", async () => {
+    const section = button.getAttribute("data-section");
+    if (!section) {
+      return;
+    }
+    await regenerateSection(section, button);
   });
 });
 
@@ -1033,6 +1419,12 @@ exportPdfBtn.addEventListener("click", () => {
 });
 
 apiEndpointInput.addEventListener("change", saveSettingsIfNeeded);
+useProxyInput.addEventListener("change", () => {
+  setAuthModeVisibility();
+  updateProviderHint(providerInput.value);
+  saveSettingsIfNeeded();
+});
+proxyBaseUrlInput.addEventListener("change", saveSettingsIfNeeded);
 modelNameInput.addEventListener("change", saveSettingsIfNeeded);
 modelNameInput.addEventListener("input", () => {
   renderModelTemplates(providerInput.value);
@@ -1040,6 +1432,7 @@ modelNameInput.addEventListener("input", () => {
 rememberSettingsInput.addEventListener("change", saveSettingsIfNeeded);
 providerInput.addEventListener("change", () => {
   applyProviderPreset(providerInput.value, true);
+  updateProviderHint(providerInput.value);
   saveSettingsIfNeeded();
 });
 apiVersionInput.addEventListener("change", saveSettingsIfNeeded);
@@ -1056,5 +1449,6 @@ clearConnectionBtn.addEventListener("click", () => {
 loadSavedSettings();
 loadLastConnection();
 renderDraftHistory();
+renderPhiWarnings([]);
 clearTroubleshooting();
 setStatus("Ready. Add reflection details and generate insights.");
