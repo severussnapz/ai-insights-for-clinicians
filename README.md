@@ -190,6 +190,13 @@ When AI generation fails, a troubleshooting panel appears with targeted suggesti
 - 5xx: provider service instability
 - Network/CORS failures: guidance to retry, verify proxy base URL, or check backend CORS settings
 
+The frontend also shows a request diagnostics panel with backend metadata when available:
+
+- HTTP status
+- backend `errorCode`
+- backend `requestId`
+- selected provider context
+
 ## Structured Safeguards
 
 Before generating output, the app enforces a safeguard flow:

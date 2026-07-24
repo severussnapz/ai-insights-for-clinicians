@@ -7,6 +7,8 @@ const outputSection = document.getElementById("outputSection");
 const statusLine = document.getElementById("statusLine");
 const troubleshootBox = document.getElementById("troubleshootBox");
 const troubleshootList = document.getElementById("troubleshootList");
+const diagnosticsBox = document.getElementById("diagnosticsBox");
+const diagnosticsList = document.getElementById("diagnosticsList");
 
 const entryTypeInput = document.getElementById("entryType");
 const toneStyleInput = document.getElementById("toneStyle");
@@ -430,6 +432,42 @@ function clearTroubleshooting() {
   troubleshootBox.classList.add("hidden");
 }
 
+function clearDiagnostics() {
+  diagnosticsList.innerHTML = "";
+  diagnosticsBox.classList.add("hidden");
+}
+
+function renderDiagnostics(error, provider) {
+  const items = [];
+  const providerName = providerDisplayName(error?.provider || provider || "openai");
+
+  if (error?.httpStatus) {
+    items.push(`HTTP status: ${error.httpStatus}`);
+  }
+  if (error?.errorCode) {
+    items.push(`Backend error code: ${error.errorCode}`);
+  }
+  if (error?.requestId) {
+    items.push(`Request ID: ${error.requestId}`);
+  }
+  if (providerName) {
+    items.push(`Provider: ${providerName}`);
+  }
+
+  if (!items.length) {
+    clearDiagnostics();
+    return;
+  }
+
+  diagnosticsList.innerHTML = "";
+  items.forEach((item) => {
+    const li = document.createElement("li");
+    li.textContent = item;
+    diagnosticsList.appendChild(li);
+  });
+  diagnosticsBox.classList.remove("hidden");
+}
+
 function detectPhiRiskItems(text) {
   const findings = [];
   const checks = [
@@ -800,6 +838,7 @@ async function regenerateSection(section, button) {
       actionOutput.value = fallback.actionPlan.join("\n");
     }
     renderTroubleshooting(buildTroubleshootingHints(error, providerInput.value));
+    renderDiagnostics(error, providerInput.value);
     setStatus(`Section regenerate fallback applied. ${error.message}`, "error");
   } finally {
     if (button) {
@@ -984,10 +1023,23 @@ async function sendAiRequest(prompt, requestType = "generate") {
 
   if (!response.ok) {
     const text = await response.text();
-    const httpError = new Error(`AI request failed (${response.status}): ${text.slice(0, 240)}`);
+    let parsed = null;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = null;
+    }
+
+    const message = parsed?.error
+      ? `AI request failed (${response.status}): ${parsed.error}`
+      : `AI request failed (${response.status}): ${text.slice(0, 240)}`;
+
+    const httpError = new Error(message);
     httpError.httpStatus = response.status;
     httpError.provider = provider;
     httpError.responseText = text;
+    httpError.errorCode = parsed?.errorCode || "";
+    httpError.requestId = parsed?.requestId || "";
     throw httpError;
   }
 
@@ -1048,9 +1100,11 @@ async function testConnection() {
       model,
       timestamp: new Date().toISOString(),
     });
+    clearDiagnostics();
     saveSettingsIfNeeded();
   } catch (error) {
     renderTroubleshooting(buildTroubleshootingHints(error, providerInput.value));
+    renderDiagnostics(error, providerInput.value);
     setStatus(`Connection test failed. ${error.message}`, "error");
   } finally {
     testConnectionBtn.disabled = false;
@@ -1343,14 +1397,17 @@ async function generate(mode) {
       assignOutputs(payload);
       setStatus("AI output generated successfully.", "success");
       clearTroubleshooting();
+      clearDiagnostics();
     } else {
       assignOutputs(buildLocalDraftPayload(entryType, reflectionText, focusAreas, controls));
       setStatus("Draft template generated.", "success");
       clearTroubleshooting();
+      clearDiagnostics();
     }
   } catch (error) {
     assignOutputs(buildLocalDraftPayload(entryType, reflectionText, focusAreas, controls));
     renderTroubleshooting(buildTroubleshootingHints(error, providerInput.value));
+    renderDiagnostics(error, providerInput.value);
     setStatus(`AI unavailable. Draft template generated instead. ${error.message}`, "error");
   } finally {
     outputSection.classList.remove("hidden");
@@ -1517,5 +1574,6 @@ loadLastConnection();
 renderDraftHistory();
 renderPhiWarnings([]);
 clearTroubleshooting();
+clearDiagnostics();
 checkApiHealth({ silent: true });
 setStatus("Ready. Add reflection details and generate insights.");

@@ -439,6 +439,28 @@ button {
   line-height: 1.45;
 }
 
+.diagnostics {
+  border: 1px solid #ccd9d0;
+  background: #f4f8f6;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.diagnostics-title {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: #2f4a3a;
+  margin-bottom: 4px;
+}
+
+.diagnostics ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #3a5444;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
 .output-header {
   display: flex;
   align-items: center;
