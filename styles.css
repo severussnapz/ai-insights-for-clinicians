@@ -269,6 +269,46 @@ input:focus {
   gap: 6px;
 }
 
+.api-health-row {
+  display: grid;
+  gap: 6px;
+}
+
+.api-health-badge {
+  margin: 2px 0 0;
+  padding: 8px 10px;
+  border: 1px solid #d7e0ca;
+  background: #f2f6ea;
+  color: #39503e;
+  border-radius: 10px;
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.api-health-badge.is-ok {
+  border-color: #cde2c7;
+  background: #eef8ea;
+  color: #285237;
+}
+
+.api-health-badge.is-error {
+  border-color: #e5cab7;
+  background: #fff6f0;
+  color: #7e3f1d;
+}
+
+.api-health-badge.is-warn {
+  border-color: #dfd7bd;
+  background: #fff9ea;
+  color: #6a5622;
+}
+
+.api-health-badge.is-pending {
+  border-color: #cfdacc;
+  background: #f4f7f1;
+  color: #4a5d50;
+}
+
 .link-btn {
   justify-self: start;
   padding: 0;

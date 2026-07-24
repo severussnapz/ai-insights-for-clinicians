@@ -85,6 +85,43 @@ def _json_response(payload: Dict[str, Any], status: int = 200, request_id: str =
     return response
 
 
+def _error_response(
+    request_id: str,
+    status: int,
+    message: str,
+    error_code: str,
+    details: Dict[str, Any] | None = None,
+):
+    payload: Dict[str, Any] = {
+        "ok": False,
+        "error": message,
+        "errorCode": error_code,
+        "requestId": request_id,
+    }
+    if details:
+        payload["details"] = details
+    return _json_response(payload, status, request_id)
+
+
+def _json_object_payload(request_id: str):
+    payload = request.get_json(silent=True)
+    if payload is None:
+        return None, _error_response(
+            request_id,
+            400,
+            "Request body must be valid JSON.",
+            "INVALID_JSON",
+        )
+    if not isinstance(payload, dict):
+        return None, _error_response(
+            request_id,
+            400,
+            "Request JSON must be an object.",
+            "INVALID_PAYLOAD",
+        )
+    return payload, None
+
+
 def _api_key_for_provider(provider: str) -> str:
     if provider == "openrouter":
         return os.getenv("OPENROUTER_API_KEY", "").strip()
@@ -257,6 +294,8 @@ def _reject_disallowed_origin(request_id: str):
         {
             "ok": False,
             "error": "Request origin is not allowed.",
+            "errorCode": "ORIGIN_NOT_ALLOWED",
+            "requestId": request_id,
         },
         403,
         request_id,
@@ -294,7 +333,10 @@ def test_connection():
     if blocked:
         return blocked
 
-    payload = request.get_json(silent=True) or {}
+    payload, error = _json_object_payload(request_id)
+    if error:
+        return error
+
     provider = str(payload.get("provider", "openai")).strip() or "openai"
     _log_event("api.test_connection.start", request_id, provider=provider)
 
@@ -302,17 +344,18 @@ def test_connection():
         result = _call_provider(payload, "Reply with exactly CONNECTION_OK and no other text.", request_id)
     except ValueError as exc:
         _log_event("api.test_connection.validation_error", request_id, provider=provider, error=str(exc))
-        return _json_response({"ok": False, "error": str(exc), "requestId": request_id}, 400, request_id)
+        return _error_response(request_id, 400, str(exc), "VALIDATION_ERROR")
     except RuntimeError as exc:
         _log_event("api.test_connection.runtime_error", request_id, provider=provider, error=str(exc))
-        return _json_response({"ok": False, "error": str(exc), "requestId": request_id}, 502, request_id)
+        return _error_response(request_id, 502, str(exc), "UPSTREAM_NETWORK_ERROR")
 
     if not result.get("ok"):
         _log_event("api.test_connection.failed", request_id, provider=provider, error=result.get("error", "unknown"))
-        return _json_response(
-            {"ok": False, "error": result.get("error", "Unknown error"), "requestId": request_id},
-            result.get("status", 502),
+        return _error_response(
             request_id,
+            result.get("status", 502),
+            result.get("error", "Unknown error"),
+            "UPSTREAM_ERROR",
         )
 
     _log_event("api.test_connection.success", request_id, provider=provider)
@@ -338,12 +381,15 @@ def generate():
     if blocked:
         return blocked
 
-    payload = request.get_json(silent=True) or {}
+    payload, error = _json_object_payload(request_id)
+    if error:
+        return error
+
     prompt = str(payload.get("prompt", "")).strip()
     provider = str(payload.get("provider", "openai")).strip() or "openai"
 
     if not prompt:
-        return _json_response({"ok": False, "error": "Prompt is required.", "requestId": request_id}, 400, request_id)
+        return _error_response(request_id, 400, "Prompt is required.", "PROMPT_REQUIRED")
 
     _log_event("api.generate.start", request_id, provider=provider)
 
@@ -351,17 +397,18 @@ def generate():
         result = _call_provider(payload, prompt, request_id)
     except ValueError as exc:
         _log_event("api.generate.validation_error", request_id, provider=provider, error=str(exc))
-        return _json_response({"ok": False, "error": str(exc), "requestId": request_id}, 400, request_id)
+        return _error_response(request_id, 400, str(exc), "VALIDATION_ERROR")
     except RuntimeError as exc:
         _log_event("api.generate.runtime_error", request_id, provider=provider, error=str(exc))
-        return _json_response({"ok": False, "error": str(exc), "requestId": request_id}, 502, request_id)
+        return _error_response(request_id, 502, str(exc), "UPSTREAM_NETWORK_ERROR")
 
     if not result.get("ok"):
         _log_event("api.generate.failed", request_id, provider=provider, error=result.get("error", "unknown"))
-        return _json_response(
-            {"ok": False, "error": result.get("error", "Unknown error"), "requestId": request_id},
-            result.get("status", 502),
+        return _error_response(
             request_id,
+            result.get("status", 502),
+            result.get("error", "Unknown error"),
+            "UPSTREAM_ERROR",
         )
 
     _log_event("api.generate.success", request_id, provider=provider)

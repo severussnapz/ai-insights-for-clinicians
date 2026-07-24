@@ -36,6 +36,8 @@ const rememberSettingsInput = document.getElementById("rememberSettings");
 const testConnectionBtn = document.getElementById("testConnectionBtn");
 const connectionBadge = document.getElementById("connectionBadge");
 const clearConnectionBtn = document.getElementById("clearConnectionBtn");
+const apiHealthBadge = document.getElementById("apiHealthBadge");
+const checkApiHealthBtn = document.getElementById("checkApiHealthBtn");
 
 const saveDraftBtn = document.getElementById("saveDraftBtn");
 const historyList = document.getElementById("historyList");
@@ -174,6 +176,63 @@ function clearLastConnection() {
   localStorage.removeItem(LAST_CONNECTION_KEY);
   renderConnectionBadge(null);
   setStatus("Stored connection history cleared.", "success");
+}
+
+function setApiHealthBadge(state, message) {
+  apiHealthBadge.classList.remove("is-ok", "is-error", "is-warn", "is-pending");
+
+  if (state) {
+    apiHealthBadge.classList.add(`is-${state}`);
+  }
+
+  apiHealthBadge.textContent = message;
+}
+
+async function checkApiHealth(options = {}) {
+  const silent = Boolean(options.silent);
+  if (!isProxyMode()) {
+    setApiHealthBadge("warn", "Proxy health: direct mode active (no backend check).");
+    return;
+  }
+
+  let proxyBase;
+  try {
+    proxyBase = parseProxyBaseUrl();
+  } catch {
+    setApiHealthBadge("error", "Proxy health: invalid Proxy Base URL.");
+    return;
+  }
+
+  if (!silent) {
+    setStatus("Checking backend health...");
+  }
+  setApiHealthBadge("pending", "Proxy health: checking...");
+  checkApiHealthBtn.disabled = true;
+
+  try {
+    const response = await fetch(`${proxyBase}/health`, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok) {
+      throw new Error(`Health endpoint failed (${response.status}).`);
+    }
+
+    setApiHealthBadge("ok", "Proxy health: online.");
+    if (!silent) {
+      setStatus("Backend health check succeeded.", "success");
+    }
+  } catch (error) {
+    setApiHealthBadge("error", "Proxy health: unavailable.");
+    if (!silent) {
+      setStatus(`Backend health check failed. ${error.message}`, "error");
+    }
+  } finally {
+    checkApiHealthBtn.disabled = false;
+  }
 }
 
 function splitSentences(value) {
@@ -1423,8 +1482,12 @@ useProxyInput.addEventListener("change", () => {
   setAuthModeVisibility();
   updateProviderHint(providerInput.value);
   saveSettingsIfNeeded();
+  checkApiHealth({ silent: true });
 });
-proxyBaseUrlInput.addEventListener("change", saveSettingsIfNeeded);
+proxyBaseUrlInput.addEventListener("change", () => {
+  saveSettingsIfNeeded();
+  checkApiHealth({ silent: true });
+});
 modelNameInput.addEventListener("change", saveSettingsIfNeeded);
 modelNameInput.addEventListener("input", () => {
   renderModelTemplates(providerInput.value);
@@ -1445,10 +1508,14 @@ testConnectionBtn.addEventListener("click", async () => {
 clearConnectionBtn.addEventListener("click", () => {
   clearLastConnection();
 });
+checkApiHealthBtn.addEventListener("click", async () => {
+  await checkApiHealth();
+});
 
 loadSavedSettings();
 loadLastConnection();
 renderDraftHistory();
 renderPhiWarnings([]);
 clearTroubleshooting();
+checkApiHealth({ silent: true });
 setStatus("Ready. Add reflection details and generate insights.");

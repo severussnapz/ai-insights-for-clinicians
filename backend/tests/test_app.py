@@ -25,6 +25,27 @@ class AppRoutesTestCase(unittest.TestCase):
         payload = response.get_json()
         self.assertFalse(payload["ok"])
         self.assertEqual(payload["error"], "Prompt is required.")
+        self.assertEqual(payload["errorCode"], "PROMPT_REQUIRED")
+
+    def test_generate_invalid_json_rejected(self):
+        response = self.client.post(
+            "/api/generate",
+            data="not-json",
+            headers={"Content-Type": "application/json"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        payload = response.get_json()
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["errorCode"], "INVALID_JSON")
+
+    def test_generate_non_object_json_rejected(self):
+        response = self.client.post("/api/generate", json=["not", "an", "object"])
+
+        self.assertEqual(response.status_code, 400)
+        payload = response.get_json()
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["errorCode"], "INVALID_PAYLOAD")
 
     def test_disallowed_origin_rejected(self):
         old_origins = os.environ.get("ALLOWED_ORIGINS")
@@ -35,11 +56,34 @@ class AppRoutesTestCase(unittest.TestCase):
             payload = response.get_json()
             self.assertFalse(payload["ok"])
             self.assertEqual(payload["error"], "Request origin is not allowed.")
+            self.assertEqual(payload["errorCode"], "ORIGIN_NOT_ALLOWED")
         finally:
             if old_origins is None:
                 os.environ.pop("ALLOWED_ORIGINS", None)
             else:
                 os.environ["ALLOWED_ORIGINS"] = old_origins
+
+    @patch("backend.app._call_provider")
+    def test_test_connection_upstream_error_code(self, mock_call_provider):
+        mock_call_provider.return_value = {
+            "ok": False,
+            "status": 429,
+            "error": "Rate limited",
+        }
+
+        response = self.client.post(
+            "/api/test-connection",
+            json={
+                "provider": "openai",
+                "endpoint": "https://api.openai.com/v1/chat/completions",
+                "model": "gpt-4o-mini",
+            },
+        )
+
+        self.assertEqual(response.status_code, 429)
+        payload = response.get_json()
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["errorCode"], "UPSTREAM_ERROR")
 
     @patch("backend.app._call_provider")
     def test_generate_success_shape(self, mock_call_provider):

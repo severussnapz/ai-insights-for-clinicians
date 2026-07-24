@@ -62,6 +62,18 @@ Backend endpoints:
 - `POST /api/test-connection`
 - `POST /api/generate`
 
+Error contract:
+
+- Failed backend responses include: `ok=false`, `error`, `errorCode`, `requestId`
+- Common `errorCode` values:
+	- `INVALID_JSON`
+	- `INVALID_PAYLOAD`
+	- `PROMPT_REQUIRED`
+	- `VALIDATION_ERROR`
+	- `UPSTREAM_NETWORK_ERROR`
+	- `UPSTREAM_ERROR`
+	- `ORIGIN_NOT_ALLOWED`
+
 ## Deployment And Hardening
 
 ### Backend security defaults
@@ -134,6 +146,7 @@ Connection testing:
 - If the check fails, inline troubleshooting hints are shown with likely causes and fixes.
 - After a successful test, a "last successful connection" badge shows provider, model, and timestamp.
 - Use "Clear connection history" to remove stored last-connection metadata from this browser.
+- The AI settings panel includes a "Proxy health" badge and "Check backend health" action for quick backend availability checks.
 
 ### Provider Presets
 
@@ -210,6 +223,21 @@ This safeguard applies to both AI generation and draft-only generation.
 	- installs backend dependencies
 	- runs backend unit tests in `backend/tests`
 	- compiles backend Python modules to catch syntax errors early
+
+## Deployment Smoke Test
+
+Run a lightweight backend smoke test after deployment to verify health and validation contracts.
+
+1. Ensure backend is running.
+2. Run:
+	- `backend/scripts/smoke_test.sh http://localhost:8000`
+	- or with your deployed URL, e.g. `backend/scripts/smoke_test.sh https://your-backend.example`
+
+Checks included:
+
+- `GET /health` returns 200 and JSON
+- `POST /api/generate` with `{}` returns 400 and `errorCode=PROMPT_REQUIRED`
+- `POST /api/generate` with invalid JSON returns 400 and `errorCode=INVALID_JSON`
 
 ## Notes
 
