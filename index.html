@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Insights for Clinicians</title>
+    <link
+      rel="preconnect"
+      href="https://fonts.googleapis.com"
+    />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Fraunces:opsz,wght@9..144,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <main class="container">
+      <header class="hero">
+        <p class="eyebrow">Reflective Writing Assistant</p>
+        <h1>AI Insights for Clinicians</h1>
+        <p class="hero-copy">
+          Draft concise, appraisal-ready reflection content inspired by common
+          FourteenFish portfolio structure and RCGP reflective learning themes.
+        </p>
+      </header>
+
+      <section class="panel input-panel">
+        <h2>Describe The Clinical Reflection</h2>
+        <p class="panel-copy">
+          Keep entries de-identified. Focus on what happened, your thinking, and
+          what you want to improve.
+        </p>
+
+        <details class="ai-settings">
+          <summary>AI Connection Settings</summary>
+          <div class="settings-grid">
+            <label for="provider">Provider</label>
+            <select id="provider" name="provider">
+              <option value="openai">OpenAI</option>
+              <option value="azure">Azure OpenAI</option>
+              <option value="openrouter">OpenRouter</option>
+            </select>
+
+            <label for="apiEndpoint">API Endpoint</label>
+            <input
+              id="apiEndpoint"
+              name="apiEndpoint"
+              type="url"
+              value="https://api.openai.com/v1/chat/completions"
+              placeholder="https://api.openai.com/v1/chat/completions"
+            />
+
+            <label for="modelName">Model Name</label>
+            <input
+              id="modelName"
+              name="modelName"
+              type="text"
+              value="gpt-4o-mini"
+              placeholder="gpt-4o-mini"
+            />
+            <div id="modelTemplates" class="model-templates" aria-live="polite"></div>
+
+            <label for="apiKey">API Key</label>
+            <input
+              id="apiKey"
+              name="apiKey"
+              type="password"
+              placeholder="Paste API key"
+              autocomplete="off"
+            />
+
+            <label for="apiVersion" class="provider-row provider-azure">API Version (Azure)</label>
+            <input
+              id="apiVersion"
+              name="apiVersion"
+              class="provider-row provider-azure"
+              type="text"
+              value="2024-02-15-preview"
+              placeholder="2024-02-15-preview"
+            />
+
+            <label for="deploymentName" class="provider-row provider-azure">Deployment Name (Azure)</label>
+            <input
+              id="deploymentName"
+              name="deploymentName"
+              class="provider-row provider-azure"
+              type="text"
+              placeholder="gpt-4o-mini"
+            />
+
+            <label for="siteUrl" class="provider-row provider-openrouter">Site URL (OpenRouter, optional)</label>
+            <input
+              id="siteUrl"
+              name="siteUrl"
+              class="provider-row provider-openrouter"
+              type="url"
+              placeholder="https://your-site.example"
+            />
+
+            <label for="appName" class="provider-row provider-openrouter">App Name (OpenRouter, optional)</label>
+            <input
+              id="appName"
+              name="appName"
+              class="provider-row provider-openrouter"
+              type="text"
+              placeholder="AI Insights for Clinicians"
+            />
+
+            <p id="providerHint" class="provider-hint">
+              OpenAI selected: uses Bearer token + chat completions format.
+            </p>
+
+            <label class="checkbox-row" for="rememberSettings">
+              <input id="rememberSettings" name="rememberSettings" type="checkbox" />
+              Remember endpoint and model on this browser
+            </label>
+
+            <div class="settings-actions">
+              <button id="testConnectionBtn" type="button" class="ghost-btn">Test Connection</button>
+            </div>
+
+            <div class="connection-row">
+              <p id="connectionBadge" class="connection-badge hidden"></p>
+              <button id="clearConnectionBtn" type="button" class="link-btn hidden">Clear connection history</button>
+            </div>
+          </div>
+        </details>
+
+        <form id="insightForm" novalidate>
+          <label for="entryType">Entry Type</label>
+          <select id="entryType" name="entryType">
+            <option value="Learning Log">Learning Log</option>
+            <option value="Case Review">Case Review</option>
+            <option value="Significant Event">Significant Event</option>
+            <option value="Consultation Reflection">Consultation Reflection</option>
+            <option value="PDP Plan">PDP Plan</option>
+          </select>
+
+          <label for="reflectionInput">Your Reflection Prompt</label>
+          <textarea
+            id="reflectionInput"
+            name="reflectionInput"
+            rows="8"
+            placeholder="Example: I reviewed a patient with recurrent abdominal pain and initially focused on IBS, but later identified red flags after re-taking the history..."
+          ></textarea>
+
+          <div class="button-row">
+            <button type="submit" id="generateBtn" class="primary-btn">Generate With AI</button>
+            <button type="button" id="generateDraftBtn" class="ghost-btn">Generate Draft Only</button>
+            <button type="button" id="clearBtn" class="ghost-btn">Clear</button>
+          </div>
+
+          <p id="statusLine" class="status-line" aria-live="polite"></p>
+          <div id="troubleshootBox" class="troubleshoot hidden" aria-live="polite">
+            <p class="troubleshoot-title">Troubleshooting hints</p>
+            <ul id="troubleshootList"></ul>
+          </div>
+        </form>
+      </section>
+
+      <section id="outputSection" class="panel output-panel hidden" aria-live="polite">
+        <div class="output-header">
+          <h2>Generated Output</h2>
+          <button id="copyAllBtn" type="button" class="ghost-btn">Copy All</button>
+        </div>
+        <p class="panel-copy">
+          Review and adapt to your own voice before adding to your appraisal.
+        </p>
+
+        <div class="output-grid">
+          <article class="output-card">
+            <div class="card-top">
+              <h3>AI Prompt (For Model Use)</h3>
+              <button type="button" class="copy-btn" data-copy-target="aiPromptOutput">Copy</button>
+            </div>
+            <textarea id="aiPromptOutput" readonly rows="9"></textarea>
+          </article>
+
+          <article class="output-card">
+            <div class="card-top">
+              <h3>Suggested Entry Summary</h3>
+              <button type="button" class="copy-btn" data-copy-target="summaryOutput">Copy</button>
+            </div>
+            <textarea id="summaryOutput" readonly rows="6"></textarea>
+          </article>
+
+          <article class="output-card">
+            <div class="card-top">
+              <h3>Learning Points</h3>
+              <button type="button" class="copy-btn" data-copy-target="learningOutput">Copy</button>
+            </div>
+            <textarea id="learningOutput" readonly rows="7"></textarea>
+          </article>
+
+          <article class="output-card">
+            <div class="card-top">
+              <h3>Action Plan</h3>
+              <button type="button" class="copy-btn" data-copy-target="actionOutput">Copy</button>
+            </div>
+            <textarea id="actionOutput" readonly rows="7"></textarea>
+          </article>
+
+          <article class="output-card full-width">
+            <div class="card-top">
+              <h3>Capability Mapping (RCGP Style)</h3>
+              <button type="button" class="copy-btn" data-copy-target="capabilityOutput">Copy</button>
+            </div>
+            <textarea id="capabilityOutput" readonly rows="8"></textarea>
+          </article>
+        </div>
+
+        <div class="export-row">
+          <button id="exportTxtBtn" type="button" class="ghost-btn">Export TXT</button>
+          <button id="exportMdBtn" type="button" class="ghost-btn">Export Markdown</button>
+          <button id="exportPdfBtn" type="button" class="ghost-btn">Export PDF</button>
+        </div>
+      </section>
+
+      <section class="panel history-panel">
+        <div class="history-header">
+          <h2>Draft And Version History</h2>
+          <button id="saveDraftBtn" type="button" class="ghost-btn">Save Version</button>
+        </div>
+        <p class="panel-copy">
+          Save snapshots of your reflection and generated outputs. Restore or delete any saved version.
+        </p>
+        <label for="draftTitle">Draft Title</label>
+        <input
+          id="draftTitle"
+          name="draftTitle"
+          type="text"
+          placeholder="Example: Abdominal pain consultation reflection"
+        />
+        <div id="historyList" class="history-list" aria-live="polite"></div>
+      </section>
+
+      <footer class="footer-note">
+        <p>
+          This tool provides drafting guidance only and does not replace clinical
+          judgment, local policy, or official RCGP/FourteenFish documentation.
+        </p>
+      </footer>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
