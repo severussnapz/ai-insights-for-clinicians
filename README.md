@@ -200,6 +200,17 @@ This safeguard applies to both AI generation and draft-only generation.
 - Delete removes a saved version.
 - Draft history is device/browser-local and not synced.
 
+## Continuous Integration
+
+- GitHub Actions workflow: `.github/workflows/ci.yml`
+- Triggered on:
+	- pushes to `main`
+	- all pull requests
+- CI checks:
+	- installs backend dependencies
+	- runs backend unit tests in `backend/tests`
+	- compiles backend Python modules to catch syntax errors early
+
 ## Notes
 
 - Keep entries de-identified.
