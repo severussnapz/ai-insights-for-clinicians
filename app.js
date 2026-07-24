@@ -61,6 +61,16 @@ const SETTINGS_KEY = "aiInsightsSettingsV1";
 const DRAFTS_KEY = "aiInsightsDraftsV1";
 const LAST_CONNECTION_KEY = "aiInsightsLastConnectionV1";
 
+const MANAGED_AI_CONFIG = {
+  provider: "openai",
+  endpoint: "https://api.openai.com/v1/chat/completions",
+  model: "gpt-4o-mini",
+  apiVersion: "2024-02-15-preview",
+  deploymentName: "",
+  siteUrl: "",
+  appName: "",
+};
+
 const PROVIDER_PRESETS = {
   openai: {
     endpoint: "https://api.openai.com/v1/chat/completions",
@@ -112,7 +122,24 @@ const LENGTH_PROFILES = {
 let activeMode = "ai";
 
 function isProxyMode() {
-  return Boolean(useProxyInput.checked);
+  return true;
+}
+
+function enforceManagedAiSettings() {
+  useProxyInput.checked = true;
+  useProxyInput.disabled = true;
+
+  providerInput.value = MANAGED_AI_CONFIG.provider;
+  apiEndpointInput.value = MANAGED_AI_CONFIG.endpoint;
+  modelNameInput.value = MANAGED_AI_CONFIG.model;
+  apiVersionInput.value = MANAGED_AI_CONFIG.apiVersion;
+  deploymentNameInput.value = MANAGED_AI_CONFIG.deploymentName;
+  siteUrlInput.value = MANAGED_AI_CONFIG.siteUrl;
+  appNameInput.value = MANAGED_AI_CONFIG.appName;
+  apiKeyInput.value = "";
+
+  rememberSettingsInput.checked = false;
+  rememberSettingsInput.disabled = true;
 }
 
 function normalizeWhitespace(value) {
@@ -404,27 +431,22 @@ function setStatus(message, tone = "") {
 }
 
 function setAuthModeVisibility() {
-  const proxyMode = isProxyMode();
+  useProxyInput.checked = true;
   const proxyRows = Array.from(document.querySelectorAll(".proxy-row"));
-  const directRows = [apiKeyLabel, apiKeyInput];
+  const directRows = [apiKeyLabel, apiKeyInput].filter(Boolean);
 
   proxyRows.forEach((element) => {
-    element.classList.toggle("hidden-row", !proxyMode);
+    element.classList.remove("hidden-row");
   });
   directRows.forEach((element) => {
-    element.classList.toggle("hidden-row", proxyMode);
+    element.classList.add("hidden-row");
   });
-  proxyHint.textContent = proxyMode
-    ? "Proxy mode: API keys are stored on your backend server, not in this browser."
-    : "Direct mode: API key is used in-browser for local testing only.";
+  proxyHint.textContent = "Proxy mode is always enabled. API keys stay on your backend server.";
 }
 
 function updateProviderHint(provider) {
   const preset = PROVIDER_PRESETS[provider] || PROVIDER_PRESETS.openai;
-  const modeLine = isProxyMode()
-    ? "Secure proxy mode is active."
-    : "Direct browser mode is active.";
-  providerHint.textContent = `${preset.hint} ${modeLine}`;
+  providerHint.textContent = `${preset.hint} Provider, endpoint, and model are managed by backend configuration.`;
 }
 
 function clearTroubleshooting() {
@@ -910,6 +932,7 @@ function parseProxyBaseUrl() {
 }
 
 async function sendAiRequest(prompt, requestType = "generate") {
+  enforceManagedAiSettings();
   const provider = providerInput.value;
   const endpoint = normalizeWhitespace(apiEndpointInput.value);
   const model = normalizeWhitespace(modelNameInput.value);
@@ -1235,21 +1258,8 @@ function deleteDraft(id) {
 }
 
 function saveSettingsIfNeeded() {
-  if (!rememberSettingsInput.checked) {
-    localStorage.removeItem(SETTINGS_KEY);
-    return;
-  }
-
   const data = {
-    useProxy: useProxyInput.checked,
     proxyBaseUrl: normalizeWhitespace(proxyBaseUrlInput.value),
-    provider: providerInput.value,
-    endpoint: normalizeWhitespace(apiEndpointInput.value),
-    model: normalizeWhitespace(modelNameInput.value),
-    apiVersion: normalizeWhitespace(apiVersionInput.value),
-    deployment: normalizeWhitespace(deploymentNameInput.value),
-    siteUrl: normalizeWhitespace(siteUrlInput.value),
-    appName: normalizeWhitespace(appNameInput.value),
   };
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(data));
 }
@@ -1311,6 +1321,7 @@ function applyProviderPreset(provider, force) {
 function loadSavedSettings() {
   const raw = localStorage.getItem(SETTINGS_KEY);
   if (!raw) {
+    enforceManagedAiSettings();
     applyProviderPreset(providerInput.value, false);
     setAuthModeVisibility();
     updateProviderHint(providerInput.value);
@@ -1319,38 +1330,15 @@ function loadSavedSettings() {
 
   try {
     const parsed = JSON.parse(raw);
-    if (typeof parsed.useProxy === "boolean") {
-      useProxyInput.checked = parsed.useProxy;
-    }
     if (parsed.proxyBaseUrl) {
       proxyBaseUrlInput.value = parsed.proxyBaseUrl;
     }
-    if (parsed.provider) {
-      providerInput.value = parsed.provider;
-    }
-    if (parsed.endpoint) {
-      apiEndpointInput.value = parsed.endpoint;
-    }
-    if (parsed.model) {
-      modelNameInput.value = parsed.model;
-    }
-    if (parsed.apiVersion) {
-      apiVersionInput.value = parsed.apiVersion;
-    }
-    if (parsed.deployment) {
-      deploymentNameInput.value = parsed.deployment;
-    }
-    if (parsed.siteUrl) {
-      siteUrlInput.value = parsed.siteUrl;
-    }
-    if (parsed.appName) {
-      appNameInput.value = parsed.appName;
-    }
-    rememberSettingsInput.checked = true;
+    enforceManagedAiSettings();
     setAuthModeVisibility();
     setProviderVisibility(providerInput.value);
   } catch {
     localStorage.removeItem(SETTINGS_KEY);
+    enforceManagedAiSettings();
     applyProviderPreset(providerInput.value, false);
     setAuthModeVisibility();
     updateProviderHint(providerInput.value);
@@ -1479,6 +1467,7 @@ generateDraftBtn.addEventListener("click", async () => {
 
 clearBtn.addEventListener("click", () => {
   form.reset();
+  enforceManagedAiSettings();
   draftTitleInput.value = "";
   apiKeyInput.value = "";
   renderPhiWarnings([]);
@@ -1570,6 +1559,7 @@ checkApiHealthBtn.addEventListener("click", async () => {
 });
 
 loadSavedSettings();
+enforceManagedAiSettings();
 loadLastConnection();
 renderDraftHistory();
 renderPhiWarnings([]);

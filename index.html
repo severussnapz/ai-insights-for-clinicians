@@ -42,10 +42,11 @@
         <details class="ai-settings">
           <summary>AI Connection Settings</summary>
           <div class="settings-grid">
-            <label class="checkbox-row" for="useProxy">
-              <input id="useProxy" name="useProxy" type="checkbox" checked />
-              Use secure backend proxy (recommended)
-            </label>
+            <input id="useProxy" name="useProxy" type="checkbox" checked hidden />
+
+            <p class="managed-ai-note">
+              AI provider and model settings are managed by the secure backend configuration.
+            </p>
 
             <label for="proxyBaseUrl" class="proxy-row">Proxy Base URL</label>
             <input
@@ -57,91 +58,25 @@
               placeholder="http://localhost:8000"
             />
 
-            <label for="provider">Provider</label>
-            <select id="provider" name="provider">
-              <option value="openai">OpenAI</option>
-              <option value="azure">Azure OpenAI</option>
-              <option value="openrouter">OpenRouter</option>
-            </select>
-
-            <label for="apiEndpoint">API Endpoint</label>
-            <input
-              id="apiEndpoint"
-              name="apiEndpoint"
-              type="url"
-              value="https://api.openai.com/v1/chat/completions"
-              placeholder="https://api.openai.com/v1/chat/completions"
-            />
-
-            <label for="modelName">Model Name</label>
-            <input
-              id="modelName"
-              name="modelName"
-              type="text"
-              value="gpt-4o-mini"
-              placeholder="gpt-4o-mini"
-            />
-            <div id="modelTemplates" class="model-templates" aria-live="polite"></div>
-
-            <label for="apiKey" id="apiKeyLabel" class="direct-row">API Key</label>
-            <input
-              id="apiKey"
-              name="apiKey"
-              class="direct-row"
-              type="password"
-              placeholder="Paste API key"
-              autocomplete="off"
-            />
-
-            <label for="apiVersion" class="provider-row provider-azure">API Version (Azure)</label>
-            <input
-              id="apiVersion"
-              name="apiVersion"
-              class="provider-row provider-azure"
-              type="text"
-              value="2024-02-15-preview"
-              placeholder="2024-02-15-preview"
-            />
-
-            <label for="deploymentName" class="provider-row provider-azure">Deployment Name (Azure)</label>
-            <input
-              id="deploymentName"
-              name="deploymentName"
-              class="provider-row provider-azure"
-              type="text"
-              placeholder="gpt-4o-mini"
-            />
-
-            <label for="siteUrl" class="provider-row provider-openrouter">Site URL (OpenRouter, optional)</label>
-            <input
-              id="siteUrl"
-              name="siteUrl"
-              class="provider-row provider-openrouter"
-              type="url"
-              placeholder="https://your-site.example"
-            />
-
-            <label for="appName" class="provider-row provider-openrouter">App Name (OpenRouter, optional)</label>
-            <input
-              id="appName"
-              name="appName"
-              class="provider-row provider-openrouter"
-              type="text"
-              placeholder="AI Insights for Clinicians"
-            />
+            <input id="provider" name="provider" type="hidden" value="openai" />
+            <input id="apiEndpoint" name="apiEndpoint" type="hidden" value="https://api.openai.com/v1/chat/completions" />
+            <input id="modelName" name="modelName" type="hidden" value="gpt-4o-mini" />
+            <input id="apiKey" name="apiKey" type="hidden" value="" autocomplete="off" />
+            <input id="apiVersion" name="apiVersion" type="hidden" value="2024-02-15-preview" />
+            <input id="deploymentName" name="deploymentName" type="hidden" value="" />
+            <input id="siteUrl" name="siteUrl" type="hidden" value="" />
+            <input id="appName" name="appName" type="hidden" value="" />
+            <div id="modelTemplates" class="model-templates hidden" aria-live="polite"></div>
 
             <p id="providerHint" class="provider-hint">
-              OpenAI selected: uses Bearer token + chat completions format.
+              Managed provider mode: backend controls provider, endpoint, and model.
             </p>
 
             <p id="proxyHint" class="proxy-hint">
-              Proxy mode: API keys are stored on your backend server, not in this browser.
+              Proxy mode is always enabled. API keys stay on your backend server.
             </p>
 
-            <label class="checkbox-row" for="rememberSettings">
-              <input id="rememberSettings" name="rememberSettings" type="checkbox" />
-              Remember endpoint and model on this browser
-            </label>
+            <input id="rememberSettings" name="rememberSettings" type="checkbox" hidden />
 
             <div class="settings-actions">
               <button id="testConnectionBtn" type="button" class="ghost-btn">Test Connection</button>

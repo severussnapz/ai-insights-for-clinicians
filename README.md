@@ -108,20 +108,15 @@ Example:
 
 In the AI Connection Settings panel:
 
-1. Select a provider preset:
-	 - OpenAI
-	 - Azure OpenAI
-	 - OpenRouter
-2. Confirm or edit API Endpoint and Model Name.
-3. If using direct mode, paste API key in browser.
-4. Fill provider-specific optional fields when relevant.
-5. Optionally enable "Remember endpoint and model".
-6. Click Test Connection before generating output.
+1. Set the backend `Proxy Base URL`.
+2. Click `Check backend health` and then `Test Connection`.
+3. Generate output once the backend is reachable.
+
+Provider, endpoint, model, and API keys are now managed on the backend and are not user-selectable in the frontend.
 
 Auth modes:
 
-- Proxy mode (default): API keys are stored in backend environment variables.
-- Direct mode: API key is entered in the browser for local testing only.
+- Proxy mode only: API keys are stored in backend environment variables.
 
 Quality controls:
 

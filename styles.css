@@ -188,6 +188,17 @@ input:focus {
   gap: 8px;
 }
 
+.managed-ai-note {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid #d7dfca;
+  background: #f3f8ea;
+  border-radius: 10px;
+  color: #3b4f40;
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
 .provider-row.hidden-row {
   display: none;
 }
