@@ -48,16 +48,6 @@
               AI provider and model settings are managed by the secure backend configuration.
             </p>
 
-            <label for="proxyBaseUrl" class="proxy-row">Proxy Base URL</label>
-            <input
-              id="proxyBaseUrl"
-              name="proxyBaseUrl"
-              class="proxy-row"
-              type="url"
-              value="http://localhost:8000"
-              placeholder="http://localhost:8000"
-            />
-
             <input id="provider" name="provider" type="hidden" value="openai" />
             <input id="apiEndpoint" name="apiEndpoint" type="hidden" value="https://api.openai.com/v1/chat/completions" />
             <input id="modelName" name="modelName" type="hidden" value="gpt-4o-mini" />
@@ -102,6 +92,13 @@
             <option value="Significant Event">Significant Event</option>
             <option value="Consultation Reflection">Consultation Reflection</option>
             <option value="PDP Plan">PDP Plan</option>
+          </select>
+
+          <label for="aiAgent">AI Agent</label>
+          <select id="aiAgent" name="aiAgent">
+            <option value="balanced" selected>Balanced Coach</option>
+            <option value="concise">Concise Scribe</option>
+            <option value="mentor">Reflective Mentor</option>
           </select>
 
           <div class="writing-controls">

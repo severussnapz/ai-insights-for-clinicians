@@ -11,6 +11,7 @@ const diagnosticsBox = document.getElementById("diagnosticsBox");
 const diagnosticsList = document.getElementById("diagnosticsList");
 
 const entryTypeInput = document.getElementById("entryType");
+const aiAgentInput = document.getElementById("aiAgent");
 const toneStyleInput = document.getElementById("toneStyle");
 const lengthStyleInput = document.getElementById("lengthStyle");
 const reflectionInput = document.getElementById("reflectionInput");
@@ -22,7 +23,6 @@ const phiAcknowledgeInput = document.getElementById("phiAcknowledge");
 
 const providerInput = document.getElementById("provider");
 const useProxyInput = document.getElementById("useProxy");
-const proxyBaseUrlInput = document.getElementById("proxyBaseUrl");
 const apiEndpointInput = document.getElementById("apiEndpoint");
 const modelNameInput = document.getElementById("modelName");
 const modelTemplatesEl = document.getElementById("modelTemplates");
@@ -69,6 +69,21 @@ const MANAGED_AI_CONFIG = {
   deploymentName: "",
   siteUrl: "",
   appName: "",
+};
+
+const AI_AGENT_PROFILES = {
+  balanced: {
+    label: "Balanced Coach",
+    promptStyle: "Use balanced, practical reflection language and clear next steps.",
+  },
+  concise: {
+    label: "Concise Scribe",
+    promptStyle: "Be brief and direct, with minimal expansion and short sentences.",
+  },
+  mentor: {
+    label: "Reflective Mentor",
+    promptStyle: "Use deeper reflective framing and coaching-style prompts while remaining concise.",
+  },
 };
 
 const PROVIDER_PRESETS = {
@@ -146,6 +161,25 @@ function normalizeWhitespace(value) {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function resolveProxyBaseUrl() {
+  const override = normalizeWhitespace(String(window.AI_PROXY_BASE_URL || ""));
+  if (override) {
+    return override.replace(/\/+$/, "");
+  }
+
+  const { hostname, port, origin } = window.location;
+  if ((hostname === "localhost" || hostname === "127.0.0.1") && port !== "8000") {
+    return "http://localhost:8000";
+  }
+
+  return origin.replace(/\/+$/, "");
+}
+
+function selectedAgentProfile() {
+  const selected = normalizeWhitespace(aiAgentInput?.value || "balanced");
+  return AI_AGENT_PROFILES[selected] || AI_AGENT_PROFILES.balanced;
+}
+
 function providerDisplayName(provider) {
   if (provider === "azure") {
     return "Azure OpenAI";
@@ -219,18 +253,7 @@ function setApiHealthBadge(state, message) {
 
 async function checkApiHealth(options = {}) {
   const silent = Boolean(options.silent);
-  if (!isProxyMode()) {
-    setApiHealthBadge("warn", "Proxy health: direct mode active (no backend check).");
-    return;
-  }
-
-  let proxyBase;
-  try {
-    proxyBase = parseProxyBaseUrl();
-  } catch {
-    setApiHealthBadge("error", "Proxy health: invalid Proxy Base URL.");
-    return;
-  }
+  const proxyBase = resolveProxyBaseUrl();
 
   if (!silent) {
     setStatus("Checking backend health...");
@@ -380,6 +403,7 @@ function buildCapabilityMapping(focusAreas) {
 }
 
 function buildAiPrompt(entryType, reflectionText, focusAreas, controls = writingControls()) {
+  const agent = selectedAgentProfile();
   const toneGuide =
     controls.tone === "brief"
       ? "Use concise and direct wording with minimal expansion."
@@ -403,6 +427,7 @@ function buildAiPrompt(entryType, reflectionText, focusAreas, controls = writing
     `ENTRY TYPE: ${entryType}`,
     `CLINICIAN INPUT: ${normalizeWhitespace(reflectionText)}`,
     `FOCUS AREAS: ${focusAreas.join("; ")}`,
+    `AI AGENT: ${agent.label}`,
     `TONE STYLE: ${controls.tone}`,
     `OUTPUT LENGTH: ${controls.length}`,
     "",
@@ -417,6 +442,7 @@ function buildAiPrompt(entryType, reflectionText, focusAreas, controls = writing
     "- Use plain English and short sentences.",
     "- Keep wording ready to paste into appraisal forms.",
     "- Avoid repetition and generic filler.",
+    `- ${agent.promptStyle}`,
     `- ${toneGuide}`,
     `- ${lengthGuide}`,
   ].join("\n");
@@ -755,6 +781,7 @@ function buildLocalDraftPayload(entryType, reflectionText, focusAreas, controls 
 }
 
 function buildSectionPrompt(section, context) {
+  const agent = selectedAgentProfile();
   const sectionMap = {
     summary: "summary",
     learning: "learningPoints",
@@ -774,6 +801,7 @@ function buildSectionPrompt(section, context) {
     `ENTRY TYPE: ${context.entryType}`,
     `REFLECTION INPUT: ${context.reflectionText}`,
     `FOCUS AREAS: ${context.focusAreas.join("; ")}`,
+    `AI AGENT: ${agent.label}`,
     `TONE STYLE: ${context.controls.tone}`,
     `OUTPUT LENGTH: ${context.controls.length}`,
     "",
@@ -924,11 +952,7 @@ function parseSectionResponse(text) {
 }
 
 function parseProxyBaseUrl() {
-  const base = normalizeWhitespace(proxyBaseUrlInput.value);
-  if (!base) {
-    throw new Error("Proxy base URL is required when proxy mode is enabled.");
-  }
-  return base.replace(/\/+$/, "");
+  return resolveProxyBaseUrl();
 }
 
 async function sendAiRequest(prompt, requestType = "generate") {
@@ -1258,10 +1282,7 @@ function deleteDraft(id) {
 }
 
 function saveSettingsIfNeeded() {
-  const data = {
-    proxyBaseUrl: normalizeWhitespace(proxyBaseUrlInput.value),
-  };
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(data));
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ managedMode: true }));
 }
 
 function renderModelTemplates(provider) {
@@ -1329,10 +1350,7 @@ function loadSavedSettings() {
   }
 
   try {
-    const parsed = JSON.parse(raw);
-    if (parsed.proxyBaseUrl) {
-      proxyBaseUrlInput.value = parsed.proxyBaseUrl;
-    }
+    JSON.parse(raw);
     enforceManagedAiSettings();
     setAuthModeVisibility();
     setProviderVisibility(providerInput.value);
@@ -1530,9 +1548,8 @@ useProxyInput.addEventListener("change", () => {
   saveSettingsIfNeeded();
   checkApiHealth({ silent: true });
 });
-proxyBaseUrlInput.addEventListener("change", () => {
-  saveSettingsIfNeeded();
-  checkApiHealth({ silent: true });
+aiAgentInput.addEventListener("change", () => {
+  setStatus(`AI agent set to ${selectedAgentProfile().label}.`);
 });
 modelNameInput.addEventListener("change", saveSettingsIfNeeded);
 modelNameInput.addEventListener("input", () => {

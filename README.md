@@ -52,8 +52,7 @@ This keeps provider keys on your server instead of in the browser.
 6. Start the backend:
 	- `python app.py`
 7. In frontend settings:
-	- keep `Use secure backend proxy` enabled
-	- set `Proxy Base URL` (default `http://localhost:8000`)
+	- keep secure backend mode enabled (always-on)
 	- click `Test Connection`
 
 Backend endpoints:
@@ -108,9 +107,15 @@ Example:
 
 In the AI Connection Settings panel:
 
-1. Set the backend `Proxy Base URL`.
-2. Click `Check backend health` and then `Test Connection`.
-3. Generate output once the backend is reachable.
+1. Click `Check backend health` and then `Test Connection`.
+2. Generate output once the backend is reachable.
+
+In the reflection form:
+
+- Select an `AI Agent` style:
+	- `Balanced Coach`
+	- `Concise Scribe`
+	- `Reflective Mentor`
 
 Provider, endpoint, model, and API keys are now managed on the backend and are not user-selectable in the frontend.
 
@@ -183,7 +188,7 @@ When AI generation fails, a troubleshooting panel appears with targeted suggesti
 - 408/409/422: timeout/conflict/validation issues
 - 429: rate limiting
 - 5xx: provider service instability
-- Network/CORS failures: guidance to retry, verify proxy base URL, or check backend CORS settings
+- Network/CORS failures: guidance to retry and check backend availability/CORS settings
 
 The frontend also shows a request diagnostics panel with backend metadata when available:
 
