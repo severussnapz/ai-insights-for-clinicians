@@ -1,10 +1,11 @@
 const form = document.getElementById("insightForm");
 const generateBtn = document.getElementById("generateBtn");
-const generateDraftBtn = document.getElementById("generateDraftBtn");
+const generateDraftBtn = { disabled: false, addEventListener: () => {} }; // removed from UI
 const clearBtn = document.getElementById("clearBtn");
 const copyAllBtn = document.getElementById("copyAllBtn");
 const outputSection = document.getElementById("outputSection");
 const statusLine = document.getElementById("statusLine");
+const loadingBar = document.getElementById("loadingBar");
 const troubleshootBox = document.getElementById("troubleshootBox");
 const troubleshootList = document.getElementById("troubleshootList");
 const diagnosticsBox = document.getElementById("diagnosticsBox");
@@ -15,7 +16,7 @@ const aiAgentInput = document.getElementById("aiAgent");
 const toneStyleInput = document.getElementById("toneStyle");
 const lengthStyleInput = document.getElementById("lengthStyle");
 const reflectionInput = document.getElementById("reflectionInput");
-const draftTitleInput = document.getElementById("draftTitle");
+const draftTitleInput = { value: "" }; // removed from UI with history panel
 const clinicianReviewConfirmInput = document.getElementById("clinicianReviewConfirm");
 const phiWarning = document.getElementById("phiWarning");
 const phiFindings = document.getElementById("phiFindings");
@@ -41,18 +42,19 @@ const clearConnectionBtn = document.getElementById("clearConnectionBtn");
 const apiHealthBadge = document.getElementById("apiHealthBadge");
 const checkApiHealthBtn = document.getElementById("checkApiHealthBtn");
 
-const saveDraftBtn = document.getElementById("saveDraftBtn");
-const historyList = document.getElementById("historyList");
+const saveDraftBtn = { addEventListener: () => {} }; // removed from UI with history panel
+const historyList = { innerHTML: "", appendChild: () => {} }; // removed from UI with history panel
 
 const exportTxtBtn = document.getElementById("exportTxtBtn");
 const exportMdBtn = document.getElementById("exportMdBtn");
+const createEntryBtn = document.getElementById("createEntryBtn");
 const exportPdfBtn = document.getElementById("exportPdfBtn");
 
 const aiPromptOutput = document.getElementById("aiPromptOutput");
 const summaryOutput = document.getElementById("summaryOutput");
 const learningOutput = document.getElementById("learningOutput");
 const actionOutput = document.getElementById("actionOutput");
-const capabilityOutput = document.getElementById("capabilityOutput");
+const capabilityOutput = { value: "" }; // removed from UI; stub prevents null errors
 
 const copyButtons = Array.from(document.querySelectorAll(".copy-btn"));
 const regenerateButtons = Array.from(document.querySelectorAll(".regenerate-btn"));
@@ -134,7 +136,7 @@ const LENGTH_PROFILES = {
   },
 };
 
-let activeMode = "ai";
+let activeMode = "ai"; // retained for any future mode extension
 
 function isProxyMode() {
   return true;
@@ -309,101 +311,62 @@ function writingControls() {
   return { tone, length, profile };
 }
 
+// Maps free-text input to the four GMP Framework domains (GMC, 2013 / MAG v4)
 function detectFocusAreas(text) {
   const lowered = text.toLowerCase();
   const focus = [];
 
-  if (/(history|listen|communication|explain|shared decision)/.test(lowered)) {
-    focus.push("Communication and consultation");
+  if (/(diagnos|clinical|skill|knowledge|training|cpd|learning|competenc|guideline|evidence|investigat|differential|uncertain)/.test(lowered)) {
+    focus.push("Domain 1 – Knowledge, skills and performance");
   }
-  if (/(safety|risk|red flag|follow-up|escalat)/.test(lowered)) {
-    focus.push("Patient safety and risk management");
+  if (/(safety|risk|red flag|follow-up|escalat|incident|significant event|near miss|audit|quality improvement|qia|prescri)/.test(lowered)) {
+    focus.push("Domain 2 – Safety and quality");
   }
-  if (/(team|colleague|handover|multidisciplinary|mdt)/.test(lowered)) {
-    focus.push("Working with colleagues and teams");
+  if (/(history|listen|communication|explain|shared decision|team|colleague|handover|multidisciplinary|mdt|referral|feedback)/.test(lowered)) {
+    focus.push("Domain 3 – Communication, partnership and teamwork");
   }
-  if (/(diagnos|uncertain|investigat|differential)/.test(lowered)) {
-    focus.push("Clinical decision-making under uncertainty");
-  }
-  if (/(ethic|consent|capacity|confidentiality)/.test(lowered)) {
-    focus.push("Ethical and professional practice");
+  if (/(ethic|consent|capacity|confidentiality|honest|probity|trust|complaint|apolog|duty of candour)/.test(lowered)) {
+    focus.push("Domain 4 – Maintaining trust");
   }
 
   if (!focus.length) {
-    focus.push("Reflective practice and quality improvement");
+    focus.push("Domain 1 – Knowledge, skills and performance");
   }
 
   return focus;
 }
 
-function buildSummary(entryType, reflectionText, controls = writingControls()) {
-  const sentences = splitSentences(reflectionText);
-  const primary = sentences[0] || toWordLimitedText(reflectionText, 40);
-  const secondary =
-    sentences[1] || "I reviewed my approach and identified practical areas to improve future care.";
-  const toneLabel = controls.tone.charAt(0).toUpperCase() + controls.tone.slice(1);
+// Entry types are the 6 GMC supporting information categories (MAG v4, Stage 1 / GMC Supporting Information for Appraisal and Revalidation 2012)
+const ENTRY_TYPE_SUPPORTING_INFO = {
+  "Continuing professional development": "Continuing professional development (CPD)",
+  "Quality improvement activity": "Quality improvement activity (QIA)",
+  "Significant event": "Significant event analysis",
+  "Feedback from colleagues": "Feedback from colleagues",
+  "Feedback from patients": "Feedback from patients",
+  "Review of complaints and compliments": "Review of complaints and compliments",
+};
 
-  return [
-    `Entry type: ${entryType}`,
-    `Tone and length: ${toneLabel}, ${controls.length}`,
-    "",
-    `What happened: ${toWordLimitedText(primary, controls.profile.summaryPrimary)}`,
-    `Why it mattered: ${toWordLimitedText(secondary, controls.profile.summarySecondary)}`,
-    "",
-    "Reflective lens: What? So what? Now what?",
-  ].join("\n");
-}
-
-function buildLearningPoints(reflectionText, focusAreas, controls = writingControls()) {
-  const starter = toWordLimitedText(reflectionText, 48);
-  const base = [
-    `- Key insight: ${starter}`,
-    "- I noticed how my assumptions influenced the first stage of assessment.",
-    "- I will strengthen documentation of uncertainty and explicit safety-netting.",
-    `- Capability emphasis: ${focusAreas.join("; ")}.`,
-    "- CPD need: targeted update and peer discussion on a similar case theme.",
-  ];
-
-  return base.slice(0, controls.profile.learningCount).join("\n");
-}
-
-function buildActionPlan(focusAreas, controls = writingControls()) {
-  const plan = [
-    "1. Complete a short focused CPD activity and log one practical change to consultations.",
-    "2. Use a structured reflection template in the next relevant case within 2 weeks.",
-    "3. Discuss this case theme in supervision or a practice meeting and document feedback.",
-    "4. Document whether the change improved confidence, safety-netting, or decision quality.",
-  ];
-
-  const selected = plan.slice(0, controls.profile.actionCount);
-  if (
-    controls.profile.actionCount >= 4 &&
-    focusAreas.includes("Patient safety and risk management") &&
-    !selected.some((line) => line.includes("red flags"))
-  ) {
-    selected[3] = "4. Add a personal checklist for red flags and explicit follow-up advice.";
-  }
-
-  return selected.join("\n");
-}
-
-function buildCapabilityMapping(focusAreas) {
-  const lines = [
-    "- Communication and consultation skills: clarified narrative and expectations.",
-    "- Clinical management: balanced immediate concerns with uncertainty.",
-    "- Maintaining performance, learning and teaching: identified CPD goal from practice.",
-    "- Organisation, management and leadership: defined a team feedback step.",
-  ];
-
-  focusAreas.forEach((item) => {
-    lines.push(`- Additional relevance: ${item}.`);
-  });
-
-  return lines.join("\n");
-}
+// Per-type framing instructions sent with every prompt so the model structures output appropriately
+const ENTRY_TYPE_GUIDANCE = {
+  "Continuing professional development":
+    "Frame the summary around what was learned, how it was applied to practice, and the CPD impact. Learning points should cite specific knowledge or skill development. Action plan items should describe how learning will be embedded and evidenced.",
+  "Quality improvement activity":
+    "Frame the summary around the improvement cycle: what was measured or changed, what the data showed, and what was implemented. Reference audit standards or PDSA cycles where relevant. Action plan items should describe next audit or review steps with timescales.",
+  "Significant event":
+    "Frame the summary using the significant event analysis structure: what happened, what went well, what could be improved, and what action was taken. Learning points must address systemic as well as individual factors. Action plan items should include follow-up at practice level where appropriate.",
+  "Feedback from colleagues":
+    "Frame the summary around themes emerging from colleague feedback, the GP's reflection on those themes, and how they relate to professional practice. Learning points should address both strengths and development areas. Action plan items should include concrete changes to working patterns or communication.",
+  "Feedback from patients":
+    "Frame the summary around themes from patient feedback, the GP's reflection on what the feedback shows about consultation quality, and planned changes. Learning points must link to Domain 3 (Communication) and Domain 4 (Maintaining trust). Action plan items should describe measurable improvements to consultation approach.",
+  "Review of complaints and compliments":
+    "Frame the summary around the nature of the complaint or compliment, the GP's reflective response, and the learning identified. For complaints, reference the duty of candour and any practice-level response. Learning points must address what the complaint or compliment reveals about care quality and professional standards.",
+};
 
 function buildAiPrompt(entryType, reflectionText, focusAreas, controls = writingControls()) {
   const agent = selectedAgentProfile();
+  const supportingInfoType = ENTRY_TYPE_SUPPORTING_INFO[entryType] || "Continuing professional development (CPD)";
+  const specificGuidance = ENTRY_TYPE_GUIDANCE[entryType] || ENTRY_TYPE_GUIDANCE["Continuing professional development"];
+
   const toneGuide =
     controls.tone === "brief"
       ? "Use concise and direct wording with minimal expansion."
@@ -419,29 +382,38 @@ function buildAiPrompt(entryType, reflectionText, focusAreas, controls = writing
         : "Use moderate length suitable for common appraisal fields.";
 
   return [
-    "You are a writing assistant for UK GP appraisal entries.",
-    "Use a concise, professional tone aligned with common FourteenFish portfolio expectations and RCGP reflective practice themes.",
-    "Do not fabricate facts. Keep patient details de-identified. Avoid legal or definitive clinical advice.",
-    "Base reflective framing on RCGP principles for meaningful reflection and capability development.",
+    "You are a writing assistant producing UK GP annual appraisal portfolio entries for NHS revalidation.",
+    "All output must align with the four domains of the Good Medical Practice (GMP) Framework for Appraisal and Revalidation (GMC, 2013):",
+    "  Domain 1 – Knowledge, skills and performance",
+    "  Domain 2 – Safety and quality",
+    "  Domain 3 – Communication, partnership and teamwork",
+    "  Domain 4 – Maintaining trust",
+    "Output must be suitable for a FourteenFish appraisal portfolio and support the appraiser's five confirmatory statements to the Responsible Officer.",
+    "Do not fabricate clinical facts. All patient and colleague details must be fully de-identified.",
+    "Avoid definitive clinical or legal advice. Do not copy clinical coding or specific drug doses.",
     "",
     `ENTRY TYPE: ${entryType}`,
+    `GMC SUPPORTING INFORMATION CATEGORY: ${supportingInfoType}`,
+    `ENTRY-TYPE-SPECIFIC GUIDANCE: ${specificGuidance}`,
     `CLINICIAN INPUT: ${normalizeWhitespace(reflectionText)}`,
-    `FOCUS AREAS: ${focusAreas.join("; ")}`,
-    `AI AGENT: ${agent.label}`,
-    `TONE STYLE: ${controls.tone}`,
-    `OUTPUT LENGTH: ${controls.length}`,
+    `GMP FOCUS DOMAINS: ${focusAreas.join("; ")}`,
+    `AI AGENT STYLE: ${agent.label}`,
+    `TONE: ${controls.tone}`,
+    `LENGTH: ${controls.length}`,
     "",
     "Return JSON only with exactly these keys:",
-    "suggestedTitle (string)",
-    "summary (string, max 90 words)",
-    "learningPoints (array of 3-5 strings)",
-    "actionPlan (array of 3-4 strings)",
-    "capabilityLinks (array of 4-6 strings)",
+    "suggestedTitle (string – suitable as a FourteenFish entry title)",
+    "summary (string, max 90 words – structured as: what happened; why it mattered; what you reflect on now)",
+    "learningPoints (array of 3-5 strings – each mapped to a GMP domain; include a CPD or QIA need where relevant)",
+    "actionPlan (array of 3-4 strings – SMART objectives with indicative timeframe; suitable for inclusion in the Personal Development Plan)",
     "",
     "Writing constraints:",
-    "- Use plain English and short sentences.",
-    "- Keep wording ready to paste into appraisal forms.",
-    "- Avoid repetition and generic filler.",
+    "- Use plain English and first-person voice.",
+    "- Each learning point should name which GMP domain it relates to.",
+    "- Action plan items should follow the format: action + timeframe + how completion will be recognised.",
+    "- Capability links must explicitly name the GMP domain (e.g. 'Domain 2 – Safety and quality: ...').",
+    "- Keep wording paste-ready for FourteenFish or equivalent NHS appraisal portfolio fields.",
+    "- Avoid generic filler; be specific to the clinician's input.",
     `- ${agent.promptStyle}`,
     `- ${toneGuide}`,
     `- ${lengthGuide}`,
@@ -666,7 +638,7 @@ function buildTroubleshootingHints(error, provider) {
 
   if (!hints.length) {
     hints.push("Check provider settings (endpoint, model/deployment, key) and retry.");
-    hints.push("Use Generate Draft Only while AI connectivity is being configured.");
+    hints.push("Check your API key and backend connection, then try again.");
   }
 
   return hints;
@@ -718,9 +690,6 @@ function allOutputText() {
     "",
     "Action Plan",
     actionOutput.value,
-    "",
-    "Capability Mapping",
-    capabilityOutput.value,
   ].join("\n");
 }
 
@@ -739,9 +708,6 @@ function allOutputMarkdown() {
     "",
     "## Action Plan",
     actionOutput.value,
-    "",
-    "## Capability Mapping",
-    capabilityOutput.value,
   ].join("\n");
 }
 
@@ -770,18 +736,10 @@ function currentTitle() {
   return title || `reflection-${new Date().toISOString().slice(0, 10)}`;
 }
 
-function buildLocalDraftPayload(entryType, reflectionText, focusAreas, controls = writingControls()) {
-  return {
-    suggestedTitle: currentTitle(),
-    summary: buildSummary(entryType, reflectionText, controls),
-    learningPoints: buildLearningPoints(reflectionText, focusAreas, controls).split("\n"),
-    actionPlan: buildActionPlan(focusAreas, controls).split("\n"),
-    capabilityLinks: buildCapabilityMapping(focusAreas).split("\n"),
-  };
-}
-
 function buildSectionPrompt(section, context) {
   const agent = selectedAgentProfile();
+  const supportingInfoType = ENTRY_TYPE_SUPPORTING_INFO[context.entryType] || "Continuing professional development (CPD)";
+  const specificGuidance = ENTRY_TYPE_GUIDANCE[context.entryType] || "";
   const sectionMap = {
     summary: "summary",
     learning: "learningPoints",
@@ -793,22 +751,28 @@ function buildSectionPrompt(section, context) {
   }
 
   return [
-    "You are refining one section of a UK GP appraisal draft.",
-    "Use concise professional language aligned with FourteenFish-style entries and RCGP reflective themes.",
-    "Do not include patient-identifying details.",
+    "You are refining one section of a UK GP annual appraisal portfolio entry for NHS revalidation.",
+    "All output must align with the four domains of the GMP Framework for Appraisal and Revalidation (GMC, 2013):",
+    "  Domain 1 – Knowledge, skills and performance",
+    "  Domain 2 – Safety and quality",
+    "  Domain 3 – Communication, partnership and teamwork",
+    "  Domain 4 – Maintaining trust",
+    "Output must be suitable for a FourteenFish appraisal portfolio. Do not include patient-identifying details.",
     "",
     `SECTION TO REGENERATE: ${key}`,
     `ENTRY TYPE: ${context.entryType}`,
+    `GMC SUPPORTING INFORMATION CATEGORY: ${supportingInfoType}`,
+    ...(specificGuidance ? [`ENTRY-TYPE-SPECIFIC GUIDANCE: ${specificGuidance}`] : []),
     `REFLECTION INPUT: ${context.reflectionText}`,
-    `FOCUS AREAS: ${context.focusAreas.join("; ")}`,
-    `AI AGENT: ${agent.label}`,
-    `TONE STYLE: ${context.controls.tone}`,
-    `OUTPUT LENGTH: ${context.controls.length}`,
+    `GMP FOCUS DOMAINS: ${context.focusAreas.join("; ")}`,
+    `AI AGENT STYLE: ${agent.label}`,
+    `TONE: ${context.controls.tone}`,
+    `LENGTH: ${context.controls.length}`,
     "",
     "Return JSON only:",
-    "- for summary: {\"summary\": \"...\"}",
-    "- for learningPoints: {\"learningPoints\": [\"...\", \"...\"]}",
-    "- for actionPlan: {\"actionPlan\": [\"...\", \"...\"]}",
+    "- for summary: {\"summary\": \"...\"} (max 90 words; what happened, why it mattered, current reflection)",
+    "- for learningPoints: {\"learningPoints\": [\"...\", \"...\"]} (each item must name its GMP domain; include CPD or QIA need)",
+    "- for actionPlan: {\"actionPlan\": [\"...\", \"...\"]} (SMART objectives with timeframe; PDP-ready wording)",
   ].join("\n");
 }
 
@@ -879,17 +843,9 @@ async function regenerateSection(section, button) {
     applyRegeneratedSection(section, parsed);
     setStatus("Section regenerated successfully.", "success");
   } catch (error) {
-    const fallback = buildLocalDraftPayload(entryType, reflectionText, focusAreas, controls);
-    if (section === "summary") {
-      summaryOutput.value = fallback.summary;
-    } else if (section === "learning") {
-      learningOutput.value = fallback.learningPoints.join("\n");
-    } else if (section === "action") {
-      actionOutput.value = fallback.actionPlan.join("\n");
-    }
     renderTroubleshooting(buildTroubleshootingHints(error, providerInput.value));
     renderDiagnostics(error, providerInput.value);
-    setStatus(`Section regenerate fallback applied. ${error.message}`, "error");
+    setStatus(`Section regenerate failed. ${error.message}`, "error");
   } finally {
     if (button) {
       button.disabled = false;
@@ -901,7 +857,7 @@ async function regenerateSection(section, button) {
 
 function assignOutputs(payload) {
   const suggestedTitle = normalizeWhitespace(payload.suggestedTitle || "");
-  if (suggestedTitle && !normalizeWhitespace(draftTitleInput.value)) {
+  if (suggestedTitle) {
     draftTitleInput.value = suggestedTitle;
   }
 
@@ -914,9 +870,6 @@ function assignOutputs(payload) {
         .map((item, index) => `${index + 1}. ${String(item).replace(/^\d+\.\s*/, "")}`)
         .join("\n")
     : String(payload.actionPlan || "");
-  capabilityOutput.value = Array.isArray(payload.capabilityLinks)
-    ? payload.capabilityLinks.map((item) => `- ${String(item).replace(/^[-\s]+/, "")}`).join("\n")
-    : String(payload.capabilityLinks || "");
 }
 
 function extractJsonBlock(text) {
@@ -936,7 +889,7 @@ function parseAiResponse(text) {
   }
 
   const parsed = JSON.parse(jsonCandidate);
-  if (!parsed.summary || !parsed.learningPoints || !parsed.actionPlan || !parsed.capabilityLinks) {
+  if (!parsed.summary || !parsed.learningPoints || !parsed.actionPlan) {
     throw new Error("AI response JSON is missing required fields.");
   }
   return parsed;
@@ -1372,7 +1325,7 @@ function clearOutputs() {
   outputSection.classList.add("hidden");
 }
 
-async function generate(mode) {
+async function generate() {
   const reflectionText = normalizeWhitespace(reflectionInput.value);
   const entryType = entryTypeInput.value;
 
@@ -1386,11 +1339,11 @@ async function generate(mode) {
     return;
   }
 
-  activeMode = mode;
   generateBtn.disabled = true;
-  generateDraftBtn.disabled = true;
+  loadingBar.classList.remove("hidden");
+  statusLine.classList.add("loading");
   clearTroubleshooting();
-  setStatus(mode === "ai" ? "Generating with AI..." : "Generating draft template...");
+  setStatus("Generating with AI...");
 
   const focusAreas = detectFocusAreas(reflectionText);
   const controls = writingControls();
@@ -1398,28 +1351,21 @@ async function generate(mode) {
   aiPromptOutput.value = prompt;
 
   try {
-    if (mode === "ai") {
-      const payload = await invokeAi(prompt);
-      assignOutputs(payload);
-      setStatus("AI output generated successfully.", "success");
-      clearTroubleshooting();
-      clearDiagnostics();
-    } else {
-      assignOutputs(buildLocalDraftPayload(entryType, reflectionText, focusAreas, controls));
-      setStatus("Draft template generated.", "success");
-      clearTroubleshooting();
-      clearDiagnostics();
-    }
+    const payload = await invokeAi(prompt);
+    assignOutputs(payload);
+    setStatus("AI output generated successfully.", "success");
+    clearTroubleshooting();
+    clearDiagnostics();
   } catch (error) {
-    assignOutputs(buildLocalDraftPayload(entryType, reflectionText, focusAreas, controls));
     renderTroubleshooting(buildTroubleshootingHints(error, providerInput.value));
     renderDiagnostics(error, providerInput.value);
-    setStatus(`AI unavailable. Draft template generated instead. ${error.message}`, "error");
+    setStatus(`Generation failed. ${error.message}`, "error");
   } finally {
+    loadingBar.classList.add("hidden");
+    statusLine.classList.remove("loading");
     outputSection.classList.remove("hidden");
     outputSection.scrollIntoView({ behavior: "smooth", block: "start" });
     generateBtn.disabled = false;
-    generateDraftBtn.disabled = false;
     saveSettingsIfNeeded();
   }
 }
@@ -1476,11 +1422,7 @@ function exportPdf() {
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  await generate("ai");
-});
-
-generateDraftBtn.addEventListener("click", async () => {
-  await generate("draft");
+  await generate();
 });
 
 clearBtn.addEventListener("click", () => {
@@ -1527,6 +1469,11 @@ copyAllBtn.addEventListener("click", () => {
 
 saveDraftBtn.addEventListener("click", () => {
   saveCurrentDraft();
+});
+
+createEntryBtn.addEventListener("click", async () => {
+  await navigator.clipboard.writeText(allOutputText()).catch(() => {});
+  window.open("https://www.fourteenfish.com/portfolio/add", "_blank", "noopener");
 });
 
 exportTxtBtn.addEventListener("click", () => {

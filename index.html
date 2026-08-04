@@ -24,14 +24,12 @@
     <div class="bg-orb orb-2"></div>
     <main class="container">
       <nav class="site-nav" aria-label="Primary">
-        <div class="site-brand">AI Insights for Clinicians</div>
-        <div class="site-actions">
-          <a href="#insightForm" class="nav-link">Start reflection</a>
-          <a href="#outputSection" class="nav-link nav-link-subtle">Jump to output</a>
-        </div>
+        <a class="site-brand" href="/" aria-label="FourteenFish — home">
+          <img src="/fourteenfish-logo.png" alt="FourteenFish" class="brand-logo" />
+        </a>
       </nav>
 
-      <header class="hero">
+      <header class="hero" hidden>
         <p class="eyebrow">Portfolio Writing Assistant</p>
         <h1>AI Insights for Clinicians</h1>
         <p class="hero-copy">
@@ -98,24 +96,29 @@
         </details>
 
         <form id="insightForm" novalidate>
-          <label for="entryType">Entry Type</label>
-          <select id="entryType" name="entryType">
-            <option value="Learning Log">Learning Log</option>
-            <option value="Case Review">Case Review</option>
-            <option value="Significant Event">Significant Event</option>
-            <option value="Consultation Reflection">Consultation Reflection</option>
-            <option value="PDP Plan">PDP Plan</option>
-          </select>
+          <div class="field-group">
+            <label for="entryType">Entry Type</label>
+            <select id="entryType" name="entryType">
+              <option value="Continuing professional development">Continuing professional development</option>
+              <option value="Quality improvement activity">Quality improvement activity</option>
+              <option value="Significant event">Significant event</option>
+              <option value="Feedback from colleagues">Feedback from colleagues</option>
+              <option value="Feedback from patients">Feedback from patients</option>
+              <option value="Review of complaints and compliments">Review of complaints and compliments</option>
+            </select>
+          </div>
 
-          <label for="aiAgent">AI Agent</label>
-          <select id="aiAgent" name="aiAgent">
-            <option value="balanced" selected>Balanced Coach</option>
-            <option value="concise">Concise Scribe</option>
-            <option value="mentor">Reflective Mentor</option>
-          </select>
+          <div class="field-group">
+            <label for="aiAgent">AI Agent</label>
+            <select id="aiAgent" name="aiAgent">
+              <option value="balanced" selected>Balanced Coach</option>
+              <option value="concise">Concise Scribe</option>
+              <option value="mentor">Reflective Mentor</option>
+            </select>
+          </div>
 
           <div class="writing-controls">
-            <div>
+            <div class="field-group">
               <label for="toneStyle">Writing Tone</label>
               <select id="toneStyle" name="toneStyle">
                 <option value="brief">Brief</option>
@@ -123,7 +126,7 @@
                 <option value="detailed">Detailed</option>
               </select>
             </div>
-            <div>
+            <div class="field-group">
               <label for="lengthStyle">Output Length</label>
               <select id="lengthStyle" name="lengthStyle">
                 <option value="short">Short</option>
@@ -133,13 +136,15 @@
             </div>
           </div>
 
-          <label for="reflectionInput">Your Reflection Prompt</label>
-          <textarea
-            id="reflectionInput"
-            name="reflectionInput"
-            rows="8"
-            placeholder="Example: I reviewed a patient with recurrent abdominal pain and initially focused on IBS, but later identified red flags after re-taking the history..."
-          ></textarea>
+          <div class="field-group">
+            <label for="reflectionInput">Your Reflection Prompt</label>
+            <textarea
+              id="reflectionInput"
+              name="reflectionInput"
+              rows="8"
+              placeholder="Example: I reviewed a patient with recurrent abdominal pain and initially focused on IBS, but later identified red flags after re-taking the history..."
+            ></textarea>
+          </div>
 
           <div class="safeguard-box">
             <p class="safeguard-title">Clinical Safety And De-Identification</p>
@@ -159,10 +164,10 @@
 
           <div class="button-row">
             <button type="submit" id="generateBtn" class="primary-btn">Generate With AI</button>
-            <button type="button" id="generateDraftBtn" class="ghost-btn">Generate Draft Only</button>
             <button type="button" id="clearBtn" class="ghost-btn">Clear</button>
           </div>
 
+          <div id="loadingBar" class="loading-bar hidden" aria-hidden="true"><div class="loading-bar-fill"></div></div>
           <p id="statusLine" class="status-line" aria-live="polite"></p>
           <div id="troubleshootBox" class="troubleshoot hidden" aria-live="polite">
             <p class="troubleshoot-title">Troubleshooting hints</p>
@@ -225,45 +230,23 @@
             </div>
             <textarea id="actionOutput" readonly rows="7"></textarea>
           </article>
-
-          <article class="output-card full-width">
-            <div class="card-top">
-              <h3>Capability Mapping (RCGP Style)</h3>
-              <button type="button" class="copy-btn" data-copy-target="capabilityOutput">Copy</button>
-            </div>
-            <textarea id="capabilityOutput" readonly rows="8"></textarea>
-          </article>
         </div>
 
         <div class="export-row">
-          <button id="exportTxtBtn" type="button" class="ghost-btn">Export TXT</button>
-          <button id="exportMdBtn" type="button" class="ghost-btn">Export Markdown</button>
-          <button id="exportPdfBtn" type="button" class="ghost-btn">Export PDF</button>
+          <button id="createEntryBtn" type="button" class="ff-btn">Create entry in FourteenFish</button>
+          <div class="export-buttons">
+            <button id="exportTxtBtn" type="button" class="ghost-btn">Export TXT</button>
+            <button id="exportMdBtn" type="button" class="ghost-btn">Export Markdown</button>
+            <button id="exportPdfBtn" type="button" class="ghost-btn">Export PDF</button>
+          </div>
         </div>
-      </section>
-
-      <section class="panel history-panel">
-        <div class="history-header">
-          <h2>Draft And Version History</h2>
-          <button id="saveDraftBtn" type="button" class="ghost-btn">Save Version</button>
-        </div>
-        <p class="panel-copy">
-          Save snapshots of your reflection and generated outputs. Restore or delete any saved version.
-        </p>
-        <label for="draftTitle">Draft Title</label>
-        <input
-          id="draftTitle"
-          name="draftTitle"
-          type="text"
-          placeholder="Example: Abdominal pain consultation reflection"
-        />
-        <div id="historyList" class="history-list" aria-live="polite"></div>
       </section>
 
       <footer class="footer-note">
         <p>
           This tool provides drafting guidance only and does not replace clinical
-          judgment, local policy, or official RCGP/FourteenFish documentation.
+          judgment, local policy, or official GMC Good Medical Practice guidance and the
+          Medical Appraisal Guide.
         </p>
       </footer>
     </main>

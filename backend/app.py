@@ -151,7 +151,23 @@ def _build_messages(prompt: str):
     return [
         {
             "role": "system",
-            "content": "You are a UK GP appraisal writing assistant. Return strict JSON only, no markdown fences.",
+            "content": (
+                "You are a UK GP appraisal writing assistant helping GPs produce reflective portfolio entries "
+                "for annual NHS appraisal and GMC revalidation under the Medical Appraisal Guide (MAG). "
+                "All output must align with the four domains of the Good Medical Practice (GMP) Framework "
+                "for Appraisal and Revalidation: "
+                "(1) Knowledge, skills and performance; "
+                "(2) Safety and quality; "
+                "(3) Communication, partnership and teamwork; "
+                "(4) Maintaining trust. "
+                "Supporting information types recognised by the GMC are: continuing professional development (CPD), "
+                "quality improvement activity (QIA), significant events, feedback from colleagues, "
+                "feedback from patients, and review of complaints and compliments. "
+                "Outputs should be ready to paste into a FourteenFish or equivalent NHS appraisal portfolio. "
+                "The Personal Development Plan (PDP) must contain SMART objectives with a clear timeframe. "
+                "Do not fabricate clinical facts. Keep all patient details fully de-identified. "
+                "Return strict JSON only, no markdown fences."
+            ),
         },
         {
             "role": "user",
